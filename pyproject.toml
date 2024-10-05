@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "bica-stones"
+version = "0.1.0"
+description = "dependencies for telegram bot"
+authors = ["Artem Kostyaev <a.s.kostyaev@tinkoff.ru>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+aiogram = "^3.13.1"
+requests = "^2.32.3"
+fastapi = {extras = ["all"], version = "^0.115.0"}
+python-dotenv = "^1.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
