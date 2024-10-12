@@ -3,7 +3,6 @@ name = "bica-stones"
 version = "0.1.0"
 description = "dependencies for telegram bot"
 authors = ["Artem Kostyaev <a.s.kostyaev@tinkoff.ru>"]
-readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"

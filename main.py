@@ -1,3 +1,7 @@
+"""
+Main file that is used to run the bot
+"""
+
 import asyncio
 import os
 import logging
