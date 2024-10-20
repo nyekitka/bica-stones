@@ -4,7 +4,7 @@ services:
     build: .
     command: mkdir tempdata && python3 main.py
     environment:
-      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_PASSWORD: 123456789
       POSTGRES_MAX_CONNECTIONS: 200
       PG_USER: postgres
       POSTGRES_DB: postgres
@@ -24,8 +24,8 @@ services:
     image: postgres:17.0
     container_name: bica-stones-db
     environment:
-      PGUSER: postgres
-      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      PG_USER: postgres
+      POSTGRES_PASSWORD: 123456789
       POSTGRES_MAX_CONNECTIONS: 200
       POSTGRES_DB: postgres
     ports:
@@ -34,7 +34,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/creating_tables/creating_tables.sql:/docker-entrypoint-initdb.d/creating_tables.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready", "-U", $PG_USER, "-d", $POSTGRES_DB ]
+      test: [ "CMD-SHELL", "pg_isready", "-U", postgres, "-d", postgres ]
       interval: 10s
       timeout: 5s
       retries: 5
