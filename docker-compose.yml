@@ -1,0 +1,45 @@
+version: '1.0'
+services:
+  app:
+    build: .
+    command: mkdir tempdata && python3 main.py
+    environment:
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_MAX_CONNECTIONS: 200
+      PG_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      TEMP_DIR: /tempdata
+      LOG_LEVEL: INFO
+    volumes:
+      - .:/app
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: ['mynetwork']
+  db:
+    image: postgres:17.0
+    container_name: bica-stones-db
+    environment:
+      PGUSER: postgres
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_MAX_CONNECTIONS: 200
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/creating_tables/creating_tables.sql:/docker-entrypoint-initdb.d/creating_tables.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready", "-U", $PG_USER, "-d", $POSTGRES_DB ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: ['mynetwork']
+volumes:
+  postgres_data:
+    driver: local
+networks: {mynetwork: {}}

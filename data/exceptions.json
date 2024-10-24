@@ -1,0 +1,11 @@
+{
+  "_UNKNOWN_ERROR": "Неизвестная ошибка",
+  "_NO_SUCH_ELEMENT": "Элемент не найден в базе данных",
+  "_NOT_IN_LOBBY": "Игрок не в лобби",
+  "_ALREADY_CHOSEN_STONE": "Камень уже выбран",
+  "_GAME_IS_NOT_RUNNING": "Игра не запущена",
+  "_DATA_DELETED": "Данные удалены и больше не существуют",
+  "_ALREADY_IN_LOBBY": "Пользователь уже в лобби",
+  "_NOT_SYNCHRONIZED_WITH_DATABASE": "Данные не синхронизированы с базой данных",
+  "_GAME_IS_RUNNING": "Игра уже запущена"
+}
