@@ -1,29 +1,14 @@
-"""
-Main file that is used to run the bot
-"""
-
 import asyncio
-import os
 import logging
-import json
+import os
 
-from dotenv import dotenv_values
-from aiogram import Dispatcher, Bot
+from dotenv import load_dotenv
 
-from app.handlers import router
+from app.game import main
+from data.exception import init_exceptions
 
-env = dotenv_values()
-bot = Bot(token=env['BOT_TOKEN'])
-dp = Dispatcher()
-
-
-async def main():
-    dp.include_router(router)
-    await dp.start_polling(bot)
-
-if __name__=='__main__':
-    logging.basicConfig(level=logging.INFO)
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print('Pressed Ctrl+C. Interrupting...')
+if __name__ == '__main__':
+    init_exceptions()
+    load_dotenv()
+    logging.basicConfig(level=os.getenv('LOG_LEVEL'))
+    asyncio.get_event_loop().run_until_complete(main())
