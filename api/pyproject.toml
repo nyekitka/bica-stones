@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "bot"
+version = "0.1.0"
+description = ""
+authors = ["andmats"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+aiogram = "^3.13.1"
+fastapi = {extras = ["all"], version = "^0.115.0"}
+uvicorn = {extras = ["standard"], version = "^0.31.1"}
+requests = "^2.32.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
