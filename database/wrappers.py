@@ -236,9 +236,10 @@ class Lobby:
 
                 ids_matrix = gen_rnd_matrix(self.__num_players)
                 user_list = await self.users()
-                columns = ',\n'.join([f"\"{str(user.id)}\" int not null" for user in user_list])
+                columns_players = ',\n'.join([f"\"{str(user.id)}\" int not null" for user in user_list])
 
-                stones_matrix = gen_rnd_matrix(self.__stones_cnt)
+                stones_matrix = gen_rnd_matrix(self.__num_players, self.__stones_cnt)
+                columns_stones = ',\n'.join([f"\"{str(stone_num)}\" int not null" for stone_num in range(1, self.__stones_cnt  + 1)])
 
                 await cursor.execute(
                     """CREATE TABLE lobby_%s.\"player_namings\"
@@ -246,7 +247,7 @@ class Lobby:
                        player_id int not null,
                         %s
                     );""" %
-                    (self.__lobby_id, columns))
+                    (self.__lobby_id, columns_players))
 
                 for i, player_namings in enumerate(ids_matrix):
                     await cursor.execute(

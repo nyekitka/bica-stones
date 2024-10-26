@@ -2,6 +2,8 @@ FROM python:3.12-bullseye
 
 RUN mkdir /app
 
+RUN mkdir -p /app/bica_tempdata
+
 WORKDIR /app
 
 ADD . /app
