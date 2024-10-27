@@ -92,7 +92,7 @@ class Lobby:
                     """CREATE TABLE lobby_%s.\"logs\"
                     (
                         date_time timestamp default current_timestamp,
-                        player_id int not null,
+                        player_id bigint not null,
                         stone_id int,
                         round_number int not null
                     );""" %
@@ -101,7 +101,7 @@ class Lobby:
                     """CREATE TABLE lobby_%s.\"player_list\"
                     (
                         id SERIAL primary key,
-                        player_id int not null unique
+                        player_id bigint not null unique
                     );""" %
                     (result[0][0]))
             except DatabaseError as e:
@@ -244,7 +244,7 @@ class Lobby:
                 await cursor.execute(
                     """CREATE TABLE lobby_%s.\"player_namings\"
                     (
-                       player_id int not null,
+                       player_id bigint not null,
                         %s
                     );""" %
                     (self.__lobby_id, columns_players))

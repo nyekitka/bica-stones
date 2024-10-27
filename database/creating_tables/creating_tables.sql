@@ -18,17 +18,9 @@ CREATE TABLE IF NOT EXISTS public."lobby" (
 
 CREATE TABLE IF NOT EXISTS public."user" (
         id SERIAL primary key,
-        tg_id int unique not null,
+        tg_id bigint unique not null,
         status user_status not null default 'player',
         current_lobby_id int references public."lobby" (id) ON DELETE SET NULL
     );
-
-
-CREATE TABLE IF NOT EXISTS public."admin"
-(
-    id      SERIAL primary key,
-    user_id int not null references "user" (id) ON DELETE CASCADE ,
-    lobby_id int not null references "lobby" (id) ON DELETE CASCADE
-);
 
 select * from public."lobby";

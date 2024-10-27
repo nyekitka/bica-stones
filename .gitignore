@@ -5,5 +5,8 @@
 .pytest_cache
 .__pycache__
 .bica_tempdata/
-app/__pycache__/*
+app/__pycache__
+data/__pycache__
+database/__pycache__
+test/__pycache__
 __pycache__
