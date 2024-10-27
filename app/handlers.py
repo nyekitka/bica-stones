@@ -8,8 +8,6 @@ import asyncio
 from . import keyboards, messages
 from database import wrappers as wr
 
-import psycopg2.extensions as ext
-
 class StoneState(StatesGroup):
     choose_number_of_stones = State()
     choose_stone = State()
