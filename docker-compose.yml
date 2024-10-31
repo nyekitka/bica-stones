@@ -4,7 +4,7 @@ services:
     build: .
     command: python3 main.py
     environment:
-      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_PASSWORD: 123456789
       POSTGRES_MAX_CONNECTIONS: 200
       PG_USER: postgres
       POSTGRES_DB: postgres
@@ -26,7 +26,7 @@ services:
     container_name: bica-stones-db
     environment:
       PGUSER: postgres
-      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_PASSWORD: 123456789
       POSTGRES_MAX_CONNECTIONS: 200
       POSTGRES_DB: postgres
     ports:
