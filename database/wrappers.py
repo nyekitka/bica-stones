@@ -419,7 +419,10 @@ class Lobby:
             for stone_id in self.__stones_set:
                 result[stone_id] = (False, list(map(lambda x: fake_namings[x[1]], filter(lambda x: x[0] == stone_id,
                                                                                        choices))))
-        choice = list(filter(lambda x: x[1] == user.id, choices))[0]
+        user_log = list(filter(lambda x: x[1] == user.id, choices))
+        if not user_log:
+            raise ActionException()
+        choice = user_log[0]
         if choice and choice[0] is not None:
             result[choice[0]] = (True, result[choice[0]][1])
         return result
