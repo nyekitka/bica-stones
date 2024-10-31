@@ -40,7 +40,7 @@ class Lobby:
     __instances: dict[int, 'Lobby'] = {}
 
     def __init__(self, lobby_id: int, stones: int, num_players: int = 0, status: str = 'waiting',
-                 round_num: int = 1):
+                 round_num: int = 0):
         self.__lobby_id = lobby_id
         self.__num_players = num_players
         self.__status = status
@@ -50,7 +50,7 @@ class Lobby:
         self.__stones_set = set(range(1, stones + 1))
 
     def __new__(cls, lobby_id: int, stones: int, num_players: int = 0, status: str = 'waiting',
-                round_num: int = 1):
+                round_num: int = 0):
         if lobby_id in cls.__instances:
             logging.debug(f"Lobby {lobby_id} already exists")
             return cls.__instances[lobby_id]
@@ -80,9 +80,22 @@ class Lobby:
         async with connection_pool.connection() as conn:
             try:
                 cursor = conn.cursor()
+
                 await cursor.execute(
-                    """INSERT INTO public.\"lobby\" (num_players, status, round, stones_cnt) VALUES (%s, \'%s\', %s, %s) RETURNING *;""" %
-                    (0, 'waiting', 1, stones))
+                    """SELECT id FROM public.\"lobby\";""")
+                result = await cursor.fetchall()
+                result = [row[0] for row in result]
+                if list(range(1, max(result) + 1)) == sorted(result):
+                    next_id = max(result) + 1
+                else:
+                    for i in range(1, max(result) + 1):
+                        if i not in result:
+                            next_id = i
+                            break
+
+                await cursor.execute(
+                    """INSERT INTO public.\"lobby\" (id, num_players, status, round, stones_cnt) VALUES (%s, %s, \'%s\', %s, %s) RETURNING *;""" %
+                    (next_id, 0, 'waiting', 0, stones))
                 result = await cursor.fetchall()
 
                 await cursor.execute(
