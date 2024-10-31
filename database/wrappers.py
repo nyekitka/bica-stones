@@ -85,7 +85,9 @@ class Lobby:
                     """SELECT id FROM public.\"lobby\";""")
                 result = await cursor.fetchall()
                 result = [row[0] for row in result]
-                if list(range(1, max(result) + 1)) == sorted(result):
+                if not result:
+                    next_id = 1
+                elif list(range(1, max(result) + 1)) == sorted(result):
                     next_id = max(result) + 1
                 else:
                     for i in range(1, max(result) + 1):
