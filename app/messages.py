@@ -26,7 +26,7 @@ def info_message(round: int, stones: dict[int, tuple[bool, list[int]]]):
             else:
                 status = 'никого нет'
         status += ', '.join(map(str, players))
-        info_str += f'{stone} 🗿 - {status}\n'
+        info_str += f'{stone} 🗿 \\- {status}\n'
     return Messages['info_message'].format(round, info_str)
 
 def no_lobbies(isadmin: bool):

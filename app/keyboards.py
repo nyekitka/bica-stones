@@ -19,13 +19,13 @@ def inlobby_keyboard(isadmin: bool) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     if isadmin:
         builder.add(KeyboardButton(text='Начать игру'))
-    builder.add(KeyboardButton(text='Выйти из игры'))
+    builder.add(KeyboardButton(text='Выйти из лобби'))
     return builder.as_markup()
 
 def ingame_keyboard(isadmin: bool, picked: bool = False) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     if isadmin:
-        builder.add(KeyboardButton(text='Выйти из игры'))
+        builder.add(KeyboardButton(text='Выйти из лобби'))
     else:
         builder.add(KeyboardButton(text='Выбрать камень'))
         if picked:

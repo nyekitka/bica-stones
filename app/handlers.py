@@ -26,8 +26,11 @@ async def start(
         await message.answer(messages.welcome(message.from_user.first_name),
                              reply_markup=keyboards.start_keyboard(user.is_admin()))
     else:
-        await message.answer(messages.useless_start(),
-                             reply_markup=keyboards.start_keyboard(user.is_admin()))
+        if lobby.round() == 0:
+            await message.answer(messages.useless_start(),
+                                reply_markup=keyboards.start_keyboard(user.is_admin()))
+        else:
+            await message.answer(messages.useless_start())
 
 @router.message((F.text == 'Войти в лобби'))
 async def enter_lobby(
@@ -63,7 +66,7 @@ async def enter_chosen_lobby(
     if not is_admin:
         lobby_users = await lobby.users()
         for other_user in lobby_users:
-            call.bot.send_message(other_user.id, 
+            await call.bot.send_message(other_user.id, 
                             messages.lobby_entered(len(lobby_users), True))
         
 @router.message((F.text == 'Создать лобби'))
@@ -221,7 +224,7 @@ async def leave_stone(
         )
         return
     await message.answer(
-        text=messages.stone_left,
+        text=messages.stone_left(),
         reply_markup=keyboards.ingame_keyboard(False, False)
     )
 
