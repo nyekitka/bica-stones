@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 from psycopg import DatabaseError
 
 from data.exception import ActionException, _NO_SUCH_ELEMENT, _DATA_DELETED, _NOT_SYNCHRONIZED_WITH_DATABASE, \
-    _GAME_IS_RUNNING, _ALREADY_IN_LOBBY, _NOT_IN_LOBBY, _GAME_IS_NOT_RUNNING, _ALREADY_CHOSEN_STONE, init_exceptions
+    _GAME_IS_RUNNING, _ALREADY_IN_LOBBY, _NOT_IN_LOBBY, _GAME_IS_NOT_RUNNING, _ALREADY_CHOSEN_STONE, init_exceptions, \
+    _NO_SUCH_STONE
 from database.query import connection_pool, do_request, init_pool
 
 from itertools import permutations
@@ -622,6 +623,7 @@ class User:
     def set_lobby(self, lobby: Lobby | None):
         if lobby is None:
             self.__current_lobby_id = None
+            return
         self.__current_lobby_id = lobby.lobby_id()
 
     def is_admin(self):
@@ -676,7 +678,7 @@ class User:
         if (await self.lobby()).status() != 'started':
             raise ActionException(_GAME_IS_NOT_RUNNING)
         if stone_id not in (await self.lobby()).stones_set():
-            raise ActionException(_NO_SUCH_ELEMENT)
+            raise ActionException(_NO_SUCH_STONE)
         self.chosen_stone = stone_id
         await do_request("""
         UPDATE lobby_%s.\"logs\"
