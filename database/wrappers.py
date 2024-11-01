@@ -40,7 +40,7 @@ class Lobby:
     __instances: dict[int, 'Lobby'] = {}
 
     def __init__(self, lobby_id: int, stones_set: dict[int, set] = None, stones: int = 1, num_players: int = 0, status: str = 'waiting',
-                 round_num: int = 1):
+                 round_num: int = 0):
         self.__lobby_id = lobby_id
         self.__num_players = num_players
         self.__status = status
@@ -50,7 +50,7 @@ class Lobby:
         self.__stones_set = stones_set if stones_set is not None else {0: set(range(1, stones + 1))}
 
     def __new__(cls, lobby_id: int, stones_set: set = None, stones: int = 1, num_players: int = 0, status: str = 'waiting',
-                round_num: int = 1):
+                round_num: int = 0):
         if lobby_id in cls.__instances:
             logging.debug(f"Lobby {lobby_id} already exists")
             return cls.__instances[lobby_id]
@@ -101,7 +101,7 @@ class Lobby:
 
                 await cursor.execute(
                     """INSERT INTO public.\"lobby\" (id, num_players, status, round, stones_cnt) VALUES (%s, %s, \'%s\', %s, %s) RETURNING *;""" %
-                    (next_id, 0, 'waiting', 1, stones))
+                    (next_id, 0, 'waiting', 0, stones))
                 result = await cursor.fetchall()
 
                 await cursor.execute(
@@ -292,11 +292,12 @@ class Lobby:
 
                 await cursor.execute("""
                                 UPDATE public.\"lobby\"
-                                SET status = 'started'
+                                SET status = 'started', round = %s,
                                 WHERE public.\"lobby\".id = %s;
-                                """ % (self.__lobby_id,))
+                                """ % (self.__lobby_id, self.__round + 1))
                 await self.start_round_logs()
                 self.__status = 'started'
+                self.__round += 1
             except DatabaseError as e:
                 await conn.rollback()
                 raise ActionException(e.sqlstate) from e
