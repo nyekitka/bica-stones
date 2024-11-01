@@ -2,8 +2,10 @@ from aiogram import types, F, Router, Bot
 from aiogram.types import FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.filters import Command, CommandStart, CommandObject
+from aiogram.filters import CommandStart
 import asyncio
+import os
+import logging
 
 from . import keyboards, messages
 from database import wrappers as wr
@@ -23,21 +25,28 @@ async def start(
     user = await wr.User.add_or_get(message.from_user.id)
     lobby = await user.lobby()
     if lobby is None:
-        await message.answer(messages.welcome(message.from_user.first_name()),
+        await message.answer(messages.welcome(message.from_user.first_name),
                              reply_markup=keyboards.start_keyboard(user.is_admin()))
     else:
-        await message.answer(messages.useless_start(),
-                             reply_markup=keyboards.start_keyboard(user.is_admin()))
+        if lobby.status() == 'waiting':
+            await message.answer(messages.useless_start(),
+                                reply_markup=keyboards.start_keyboard(user.is_admin()))
+        else:
+            await message.answer(messages.useless_start())
 
 @router.message((F.text == 'Войти в лобби'))
 async def enter_lobby(
     message: types.Message
 ) -> None:
-    user = wr.User(message.from_user.id)
+    user = await wr.User.add_or_get(message.from_user.id)
     lobby = await user.lobby()
     if lobby is None:
-        await message.answer(messages.choose_lobby(),
-                             reply_markup=keyboards.lobbies_keyboard(await wr.Lobby.lobby_ids()))
+        lobbys = await wr.Lobby.lobby_ids()
+        if len(lobbys) == 0:
+            await message.answer(messages.no_lobbies(user.is_admin()))
+        else:
+            await message.answer(messages.choose_lobby(),
+                                reply_markup=keyboards.lobbies_keyboard(lobbys))
 
 @router.callback_query(F.data.startswith('enter'))
 async def enter_chosen_lobby(
@@ -45,8 +54,8 @@ async def enter_chosen_lobby(
     state: FSMContext
 ) -> None:
     lobby_id = int(call.data.split()[1])
-    user = wr.User(call.from_user.id)
-    lobby = wr.Lobby(lobby_id)
+    user = await wr.User.add_or_get(call.from_user.id)
+    lobby = await wr.Lobby.get_lobby(lobby_id)
     try:
         await lobby.join_user(user)
     except wr.ActionException as ex:
@@ -54,26 +63,29 @@ async def enter_chosen_lobby(
         return
     await call.answer('')
     is_admin = user.is_admin()
-    await call.message.answer(messages.lobby_entered(lobby_id),
+    await call.message.answer(messages.lobby_entered(lobby_id, False),
                               reply_markup=keyboards.inlobby_keyboard(is_admin))
     if not is_admin:
         lobby_users = await lobby.users()
+        num_players = len([user for user in lobby_users if not user.is_admin()])
         for other_user in lobby_users:
-            call.bot.send_message(other_user.id, 
-                            messages.lobby_entered_for_others(len(lobby_users)))
+            await call.bot.send_message(
+                chat_id=other_user.id, 
+                text=messages.lobby_entered(num_players, True)
+            )
         
 @router.message((F.text == 'Создать лобби'))
 async def create_lobby(
     message: types.Message,
     state: FSMContext
 ) -> None:
-    user = wr.User(message.from_user.id)
+    user = await wr.User.add_or_get(message.from_user.id)
     if user.is_admin():
         await state.set_state(StoneState.choose_number_of_stones)
         await message.answer(messages.choose_num_stones())
 
 
-@router.callback_query(StoneState.choose_number_of_stones)
+@router.message(StoneState.choose_number_of_stones)
 async def choose_num_of_stones(
     message: types.Message,
     state: FSMContext
@@ -87,7 +99,7 @@ async def choose_num_of_stones(
     if 1 <= number <= 200:
         await state.clear()
         lobby = await wr.Lobby.make_lobby(number)
-        await message.answer(messages.lobby_created(lobby.id), 
+        await message.answer(messages.lobby_created(lobby.lobby_id()), 
                              reply_markup=keyboards.start_keyboard(True))
     else:
         await message.answer(messages.incorrect_num_stones(number))
@@ -97,26 +109,27 @@ async def leave_lobby(
     message: types.Message,
     state: FSMContext
 ) -> None:
-    user = wr.User(message.from_user.id)
+    user = await wr.User.add_or_get(message.from_user.id)
     lobby = await user.lobby()
     try:
         await lobby.kick_user(user)
     except AttributeError:
-        message.answer(messages.leaving_lobby_without_being_in(),
+        await message.answer(messages.leaving_lobby_without_being_in(),
                        reply_markup=keyboards.start_keyboard(user.is_admin()))
         return
     except wr.ActionException as ex:
-        message.answer(str(ex))
+        await message.answer(str(ex))
         return
     is_admin = user.is_admin()
-    message.answer(messages.left_lobby(lobby.id),
+    await message.answer(messages.left_lobby(lobby.lobby_id(), False),
                    reply_markup=keyboards.start_keyboard(is_admin))
     if not is_admin:
         lobby_users = await lobby.users()
+        num_players = len([user for user in lobby_users if not user.is_admin()])
         for other_user in lobby_users:
-            message.bot.send_message(
-                other_user.id, 
-                messages.lobby_entered_for_others(len(lobby_users))
+            await message.bot.send_message(
+                chat_id=other_user.id, 
+                text=messages.left_lobby(num_players, True)
             )
 
 @router.message((F.text == 'Начать игру'))
@@ -124,17 +137,17 @@ async def start_game(
     message: types.Message,
     state: FSMContext
 ) -> None:
-    user = wr.User(message.from_user.id)
+    user = await wr.User.add_or_get(message.from_user.id)
     if user.is_admin():
         lobby = await user.lobby()
         if lobby is None:
-            message.answer(messages.starting_not_being_in_lobby(),
+            await message.answer(messages.starting_not_being_in_lobby(),
                            reply_markup=keyboards.start_keyboard(True))
             return
         try:
             await lobby.start_game()
         except wr.ActionException as ex:
-            message.answer(str(ex))
+            await message.answer(str(ex))
             return
         await game_loop(message.bot, lobby)
         
@@ -143,7 +156,10 @@ async def round_loop(bot: Bot, lobby: wr.Lobby):
     round = lobby.round()
     for user in users:
         if not user.is_admin():
-            info = await lobby.field_for_user(user)
+            try:
+                info = await lobby.field_for_user(user)
+            except wr.ActionException as ex:
+                logging.error(str(ex))
             is_picked = any(map(lambda x: x[0], info.values()))
             await bot.send_message(
                 chat_id=user.id,
@@ -168,22 +184,25 @@ async def game_loop(bot: Bot, lobby: wr.Lobby):
         for user in users:
             await bot.send_message(
                 chat_id=user.id,
-                text=messages.round_ended(round)
+                text=messages.round_ended(round - 1),
+                reply_markup=keyboards.remove_keyboard
             )
         await asyncio.sleep(10)
     users = await lobby.users()
     for user in users:
         if user.is_admin():
+            logs_path = await lobby.get_logs()
             await bot.send_document(
-                caption=messages.game_over_for_admin(),
+                caption=messages.game_over(True),
                 chat_id=user.id,
-                document=FSInputFile(await lobby.get_logs(), f'Логи игры {lobby.id}'),
+                document=FSInputFile(logs_path, f'Логи игры {lobby.lobby_id()}.csv'),
                 reply_markup=keyboards.start_keyboard(True)
             )
+            os.remove(logs_path)
         else:
             await bot.send_message(
                 chat_id=user.id,
-                text=messages.game_over_for_user(),
+                text=messages.game_over(False),
                 parse_mode='MarkdownV2',
                 reply_markup=keyboards.start_keyboard(False)
             )
@@ -202,7 +221,7 @@ async def leave_stone(
     message: types.Message,
     state: FSMContext
 ) -> None:
-    user = wr.User(message.from_user.id)
+    user = await wr.User.add_or_get(message.from_user.id)
     try:
         await user.leave_stone()
     except wr.ActionException as ex:
@@ -217,7 +236,7 @@ async def leave_stone(
         )
         return
     await message.answer(
-        text=messages.stone_left,
+        text=messages.stone_left(),
         reply_markup=keyboards.ingame_keyboard(False, False)
     )
 
@@ -227,14 +246,16 @@ async def choose_stone_to_leave(
     state: FSMContext
 ) -> None:
     number_of_stone = None
-    user = wr.User(message.from_user.id)
+    user = await wr.User.add_or_get(message.from_user.id)
     try:
         number_of_stone = int(message.text)
         await user.choose_stone(number_of_stone)
     except ValueError:
         await message.answer(messages.incorrect_number())
+        return
     except wr.ActionException as ex:
         await message.answer(str(ex))
+        return
     await message.answer(
         text=messages.stone_chosen(number_of_stone),
         reply_markup=keyboards.ingame_keyboard(False, True)

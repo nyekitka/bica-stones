@@ -289,11 +289,12 @@ class Lobby:
                         """INSERT INTO lobby_%s.\"player_namings\"
                         VALUES (%s, %s);""" %
                         (self.__lobby_id, user_list[i].id, ', '.join(list(map(str, player_namings)))))
+
                 await cursor.execute("""
                                 UPDATE public.\"lobby\"
-                                SET status = 'started'
+                                SET status = 'started', round = %s
                                 WHERE public.\"lobby\".id = %s;
-                                """ % (self.__lobby_id,))
+                                """ % (self.__lobby_id, self.__round + 1))
                 await self.start_round_logs()
                 self.__status = 'started'
             except DatabaseError as e:
@@ -494,7 +495,6 @@ class Lobby:
             self.__lobby_id, self.__round))
         fake_namings = await self.fake_namings(user.id)
         if choices:
-            print(self.__stones_set)
             for stone_id in self.__stones_set[self.__round]:
                 result[stone_id] = (False, list(map(lambda x: fake_namings[x[1]], filter(lambda x: x[0] == stone_id and x[1] != user.id,
                                                                                          choices))))
