@@ -40,7 +40,7 @@ class Lobby:
     __instances: dict[int, 'Lobby'] = {}
 
     def __init__(self, lobby_id: int, stones_set: dict[int, set] = None, stones: int = 1, num_players: int = 0, status: str = 'waiting',
-                 round_num: int = 0):
+                 round_num: int = 1):
         self.__lobby_id = lobby_id
         self.__num_players = num_players
         self.__status = status
@@ -50,7 +50,7 @@ class Lobby:
         self.__stones_set = stones_set if stones_set is not None else {0: set(range(1, stones + 1))}
 
     def __new__(cls, lobby_id: int, stones_set: set = None, stones: int = 1, num_players: int = 0, status: str = 'waiting',
-                round_num: int = 0):
+                round_num: int = 1):
         if lobby_id in cls.__instances:
             logging.debug(f"Lobby {lobby_id} already exists")
             return cls.__instances[lobby_id]
@@ -101,7 +101,7 @@ class Lobby:
 
                 await cursor.execute(
                     """INSERT INTO public.\"lobby\" (id, num_players, status, round, stones_cnt) VALUES (%s, %s, \'%s\', %s, %s) RETURNING *;""" %
-                    (next_id, 0, 'waiting', 0, stones))
+                    (next_id, 0, 'waiting', 1, stones))
                 result = await cursor.fetchall()
 
                 await cursor.execute(
@@ -395,10 +395,9 @@ class Lobby:
             raise ActionException(_GAME_IS_NOT_RUNNING)
         choices = await do_request("""
                SELECT stone_id FROM lobby_%s.\"logs\" where round_number = %s;""" % (self.__lobby_id, self.__round,))
-        new_set_stone = self.__stones_set[self.__round].copy()
-        for stone_id in list(new_set_stone):
+        for stone_id in list(self.__stones_set[self.__round]):
             if len(list(filter(lambda x: x[0] == stone_id, choices))) == 2:
-                new_set_stone.remove(stone_id)
+                self.__stones_set[self.__round].remove(stone_id)
 
         async with connection_pool.connection() as conn:
             try:
@@ -410,7 +409,7 @@ class Lobby:
                     self.__lobby_id, player.id, self.__round))
                     result = await cursor.fetchone()
                     result = result[0]
-                    if result not in new_set_stone:
+                    if result not in self.__stones_set[self.__round]:
                         result = "NULL"
                     await cursor.execute("""
                        INSERT INTO lobby_%s.\"logs\" (player_id, stone_id, round_number) VALUES (%s, %s, %s)""" % (
@@ -420,17 +419,17 @@ class Lobby:
                            UPDATE public.\"lobby\"
                            SET round = %s, stones_cnt = %s
                            WHERE public.\"lobby\".id = %s;
-                           """ % (self.__round + 1, len(new_set_stone), self.__lobby_id))
+                           """ % (self.__round + 1, len(self.__stones_set[self.__round]), self.__lobby_id))
 
                 await cursor.execute("""
                            INSERT INTO lobby_%s.\"stones_list\" (round_num, stones) VALUES (
                            %s,
                            '%s')
-                           """ % (self.__lobby_id, self.__round + 1, ','.join(list(map(str, new_set_stone)))))
+                           """ % (self.__lobby_id, self.__round + 1, ','.join(list(map(str, self.__stones_set[self.__round])))))
 
                 self.__round += 1
-                self.__stones_cnt = len(new_set_stone)
-                self.__stones_set[self.__round] = new_set_stone
+                self.__stones_set[self.__round] = self.__stones_set[self.__round-1].copy()
+                self.__stones_cnt = len(self.__stones_set[self.__round])
             except DatabaseError as e:
                 await conn.rollback()
                 raise ActionException(e.sqlstate) from e
@@ -440,6 +439,7 @@ class Lobby:
             finally:
                 await cursor.close()
             await conn.commit()
+
 
     def stones_left(self) -> int:
         """
@@ -478,20 +478,21 @@ class Lobby:
             raise ActionException(_DATA_DELETED)
         if user.id not in list(map(lambda x: x.id, await self.users())):
             raise ActionException(_NO_SUCH_ELEMENT)
-        result = {stone_id + 1: (False, []) for stone_id in range(self.__stones_cnt)}
+        result = {stone_id: (False, []) for stone_id in self.__stones_set[self.__round]}
         choices = await do_request("""
                        SELECT stone_id, player_id FROM lobby_%s.\"logs\" where round_number = %s;""" % (
-            self.__lobby_id, max(self.__round - 1, 0)))
+            self.__lobby_id, self.__round))
         fake_namings = await self.fake_namings(user.id)
         if choices:
-            for stone_id in self.__stones_set[self.__round - 1]:
+            print(self.__stones_set)
+            for stone_id in self.__stones_set[self.__round]:
                 result[stone_id] = (False, list(map(lambda x: fake_namings[x[1]], filter(lambda x: x[0] == stone_id and x[1] != user.id,
                                                                                          choices))))
         user_log = list(filter(lambda x: x[1] == user.id, choices))
         if not user_log:
             raise ActionException()
         choice = user_log[0]
-        if choice and choice[0] is not None:
+        if choice and choice[0] is not None and choice[0] in self.__stones_set[self.__round]:
             result[choice[0]] = (True, result[choice[0]][1])
         return result
 
@@ -661,8 +662,6 @@ class User:
             raise ActionException(_DATA_DELETED)
         if await self.lobby() is None:
             raise ActionException(_NOT_IN_LOBBY)
-        if self.chosen_stone is not None:
-            raise ActionException(_ALREADY_CHOSEN_STONE)
         if (await self.lobby()).status() != 'started':
             raise ActionException(_GAME_IS_NOT_RUNNING)
         if stone_id not in (await self.lobby()).stones_set():
@@ -705,43 +704,43 @@ class User:
 async def main():
     await init_pool()
     init_exceptions()
-    lobby = await Lobby.get_lobby(6)
+    lobby = await Lobby.make_lobby(6)
     print(lobby)
     print(lobby.stones_set())
     print(lobby.stones_left())
     # lobby = await Lobby.make_lobby(5)
-    # user = await User.add_or_get(123)
-    # user4 = await User.add_or_get(12356)
-    # await user4.set_status('admin')
-    # user2 = await User.add_or_get(1234)
-    # user3 = await User.add_or_get(12345)
+    user = await User.add_or_get(123)
+    user4 = await User.add_or_get(12356)
+    await user4.set_status('admin')
+    user2 = await User.add_or_get(1234)
+    user3 = await User.add_or_get(12345)
     #
-    # await lobby.join_user(user)
-    # await lobby.join_user(user4)
-    # await lobby.join_user(user2)
-    # await lobby.join_user(user3)
+    await lobby.join_user(user)
+    await lobby.join_user(user4)
+    await lobby.join_user(user2)
+    await lobby.join_user(user3)
     #
-    # await lobby.start_game()
+    await lobby.start_game()
     #
-    # await user.leave_stone()
-    # await user.choose_stone(4)
-    # await user2.leave_stone()
-    # await user2.choose_stone(2)
-    # await user3.choose_stone(4)
-    # await user3.leave_stone()
-    # await user3.choose_stone(2)
+    #await user.leave_stone()
+    await user.choose_stone(4)
+    #await user2.leave_stone()
+    await user2.choose_stone(5)
+    await user3.choose_stone(4)
+    #await user3.leave_stone()
+    await user3.choose_stone(5)
     # #
-    # await lobby.end_round()
-    # print(await lobby.field_for_user(user))
-    # print(await lobby.field_for_user(user2))
-    # print(await lobby.field_for_user(user3))
-    #
-    # await lobby.end_round()
-    # print(await lobby.field_for_user(user))
-    # print(await lobby.field_for_user(user2))
-    # print(await lobby.field_for_user(user3))
+    await lobby.end_round()
+    print(await lobby.field_for_user(user))
+    print(await lobby.field_for_user(user2))
+    print(await lobby.field_for_user(user3))
+
+    await lobby.end_round()
+    print(await lobby.field_for_user(user))
+    print(await lobby.field_for_user(user2))
+    print(await lobby.field_for_user(user3))
     # #print(await lobby.field_for_user(user4))
-    # print(lobby)
+    print(lobby.stones_set())
 
     #await lobby.end_game()
     #print(lobby)
