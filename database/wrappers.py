@@ -492,7 +492,7 @@ class Lobby:
         result = {stone_id: (False, []) for stone_id in self.__stones_set[self.__round]}
         choices = await do_request("""
                        SELECT stone_id, player_id FROM lobby_%s.\"logs\" where round_number = %s;""" % (
-            self.__lobby_id, self.__round - 1, 0))
+            self.__lobby_id, self.__round))
         fake_namings = await self.fake_namings(user.id)
         if choices:
             for stone_id in self.__stones_set[self.__round]:

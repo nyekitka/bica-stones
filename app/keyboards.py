@@ -1,6 +1,9 @@
 from aiogram.types import (ReplyKeyboardMarkup, KeyboardButton, 
-                           InlineKeyboardButton, InlineKeyboardMarkup)
+                           InlineKeyboardButton, InlineKeyboardMarkup,
+                           ReplyKeyboardRemove)
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
+
+remove_keyboard = ReplyKeyboardRemove()
 
 def start_keyboard(isadmin: bool) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()

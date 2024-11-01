@@ -2,8 +2,10 @@ from aiogram import types, F, Router, Bot
 from aiogram.types import FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.filters import Command, CommandStart, CommandObject
+from aiogram.filters import CommandStart
 import asyncio
+import os
+import logging
 
 from . import keyboards, messages
 from database import wrappers as wr
@@ -154,7 +156,10 @@ async def round_loop(bot: Bot, lobby: wr.Lobby):
     round = lobby.round()
     for user in users:
         if not user.is_admin():
-            info = await lobby.field_for_user(user)
+            try:
+                info = await lobby.field_for_user(user)
+            except wr.ActionException as ex:
+                logging.error(str(ex))
             is_picked = any(map(lambda x: x[0], info.values()))
             await bot.send_message(
                 chat_id=user.id,
@@ -179,18 +184,21 @@ async def game_loop(bot: Bot, lobby: wr.Lobby):
         for user in users:
             await bot.send_message(
                 chat_id=user.id,
-                text=messages.round_ended(round)
+                text=messages.round_ended(round - 1),
+                reply_markup=keyboards.remove_keyboard
             )
         await asyncio.sleep(10)
     users = await lobby.users()
     for user in users:
         if user.is_admin():
+            logs_path = await lobby.get_logs()
             await bot.send_document(
                 caption=messages.game_over(True),
                 chat_id=user.id,
-                document=FSInputFile(await lobby.get_logs(), f'Логи игры {lobby.lobby_id()}'),
+                document=FSInputFile(logs_path, f'Логи игры {lobby.lobby_id()}.csv'),
                 reply_markup=keyboards.start_keyboard(True)
             )
+            os.remove(logs_path)
         else:
             await bot.send_message(
                 chat_id=user.id,
