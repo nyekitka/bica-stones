@@ -156,11 +156,14 @@ class Lobby:
         return self
 
     @staticmethod
-    async def lobby_ids():
+    async def lobby_ids(is_for_admin: bool = False):
         """
         Returns list of ids of all lobbies in the database
         """
-        db_lobbies = await do_request(f"SELECT id FROM public.\"lobby\" where status = 'waiting';")
+        if is_for_admin:
+            db_lobbies = await do_request(f"SELECT id FROM public.\"lobby\" where status IN ('waiting', 'started');")
+        else:
+            db_lobbies = await do_request(f"SELECT id FROM public.\"lobby\" where status IN ('waiting');")
         return [lobbies[0] for lobbies in db_lobbies]
 
     async def join_user(self, user):
@@ -717,15 +720,17 @@ class User:
 async def main():
     await init_pool()
     init_exceptions()
-    lobby = await Lobby.get_lobby(15)
+    # lobby = await Lobby.get_lobby(15)
     #user = await User.add_or_get(123)
     #await lobby.kick_user(user)
     print('check')
 
-    await lobby.end_game()
-    print(lobby)
-    print(lobby.stones_set())
-    print(lobby.stones_left())
+    print(await Lobby.lobby_ids(True))
+
+    # await lobby.end_game()
+    # print(lobby)
+    # print(lobby.stones_set())
+    # print(lobby.stones_left())
     # lobby = await Lobby.make_lobby(5)
     # user = await User.add_or_get(123)
     # user4 = await User.add_or_get(12356)
