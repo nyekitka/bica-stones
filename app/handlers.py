@@ -63,8 +63,16 @@ async def enter_chosen_lobby(
         return
     await call.answer('')
     is_admin = user.is_admin()
-    await call.message.answer(messages.lobby_entered(lobby_id, False),
-                              reply_markup=keyboards.inlobby_keyboard(is_admin))
+    if lobby.status() == 'waiting':
+        await call.message.answer(
+            text=messages.lobby_entered(lobby_id, False),
+            reply_markup=keyboards.inlobby_keyboard(is_admin)
+        )
+    else:
+        await call.message.answer(
+            text=messages.lobby_entered(lobby_id, False),
+            reply_markup=keyboards.ingame_keyboard(is_admin)
+        )
     if not is_admin:
         lobby_users = await lobby.users()
         num_players = len([user for user in lobby_users if not user.is_admin()])
