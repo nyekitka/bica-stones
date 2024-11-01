@@ -159,7 +159,7 @@ class Lobby:
         """
         Returns list of ids of all lobbies in the database
         """
-        db_lobbies = await do_request(f"SELECT id FROM public.\"lobby\"")
+        db_lobbies = await do_request(f"SELECT id FROM public.\"lobby\" where status = 'waiting';")
         return [lobbies[0] for lobbies in db_lobbies]
 
     async def join_user(self, user):
@@ -324,6 +324,7 @@ class Lobby:
                                             SET current_lobby_id = NULL
                                             WHERE public.\"user\".tg_id = %s;
                                             """ % (player.id,))
+                    player.set_lobby(None)
 
                 await cursor.execute("""
                                  UPDATE public.\"lobby\"
