@@ -26,7 +26,7 @@ async def start(
         await message.answer(messages.welcome(message.from_user.first_name),
                              reply_markup=keyboards.start_keyboard(user.is_admin()))
     else:
-        if lobby.round() == 0:
+        if lobby.status() == 'waiting':
             await message.answer(messages.useless_start(),
                                 reply_markup=keyboards.start_keyboard(user.is_admin()))
         else:
