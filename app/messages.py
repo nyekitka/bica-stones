@@ -1,10 +1,11 @@
 import json
 from typing import Tuple
+from pymorphy3 import MorphAnalyzer
 
 __messages_file = open('data/messages.json', encoding='utf-8')
 Messages = json.load(__messages_file)
 __messages_file.close()
-
+morph = MorphAnalyzer()
 
 def info_message(round: int, stones: dict[int, tuple[bool, list[int]]]):
     info_str = ''
@@ -60,10 +61,12 @@ def lobby_created(n: int):
     return Messages['lobby_created'].format(n)
 
 def lobby_entered(n: int, is_other: bool):
+    player_word = morph.parse('игрок')[0]
+    agreed_word = player_word.make_agree_with_number(n).word
     if is_other:
-        return Messages['lobby_entered_for_others'].format(n)
+        return Messages['lobby_entered_for_others'].format(n, agreed_word)
     else:
-        return Messages['lobby_entered'].format(n)
+        return Messages['lobby_entered'].format(n, agreed_word)
 
 def leaving_lobby_without_being_in():
     return Messages['leaving_lobby_without_being_in']
