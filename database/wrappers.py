@@ -31,6 +31,9 @@ def gen_rnd_matrix(lines: int, columns: int = None) -> tuple[tuple[int, ...], ..
     return ids_matrix
 
 
+_START_ROUND_VALUE = 1
+
+
 class Lobby:
     # TODO: номер раунда в логах, все остальные функции
 
@@ -40,17 +43,17 @@ class Lobby:
     __instances: dict[int, 'Lobby'] = {}
 
     def __init__(self, lobby_id: int, stones_set: dict[int, set] = None, stones: int = 1, num_players: int = 0, status: str = 'waiting',
-                 round_num: int = 0):
+                 round_num: int = _START_ROUND_VALUE):
         self.__lobby_id = lobby_id
         self.__num_players = num_players
         self.__status = status
         self.__round = round_num
         self.__deleted = False
         self.__stones_cnt = stones
-        self.__stones_set = stones_set if stones_set is not None else {0: set(range(1, stones + 1))}
+        self.__stones_set = stones_set if stones_set is not None else {_START_ROUND_VALUE: set(range(1, stones + 1))}
 
     def __new__(cls, lobby_id: int, stones_set: set = None, stones: int = 1, num_players: int = 0, status: str = 'waiting',
-                round_num: int = 0):
+                round_num: int = _START_ROUND_VALUE):
         if lobby_id in cls.__instances:
             logging.debug(f"Lobby {lobby_id} already exists")
             return cls.__instances[lobby_id]
@@ -101,7 +104,7 @@ class Lobby:
 
                 await cursor.execute(
                     """INSERT INTO public.\"lobby\" (id, num_players, status, round, stones_cnt) VALUES (%s, %s, \'%s\', %s, %s) RETURNING *;""" %
-                    (next_id, 0, 'waiting', 0, stones))
+                    (next_id, 0, 'waiting', _START_ROUND_VALUE, stones))
                 result = await cursor.fetchall()
 
                 await cursor.execute(
@@ -290,14 +293,8 @@ class Lobby:
                         VALUES (%s, %s);""" %
                         (self.__lobby_id, user_list[i].id, ', '.join(list(map(str, player_namings)))))
 
-                await cursor.execute("""
-                                UPDATE public.\"lobby\"
-                                SET status = 'started', round = %s,
-                                WHERE public.\"lobby\".id = %s;
-                                """ % (self.__lobby_id, self.__round + 1))
                 await self.start_round_logs()
                 self.__status = 'started'
-                self.__round += 1
             except DatabaseError as e:
                 await conn.rollback()
                 raise ActionException(e.sqlstate) from e
@@ -735,6 +732,7 @@ async def main():
     print(await lobby.field_for_user(user))
     print(await lobby.field_for_user(user2))
     print(await lobby.field_for_user(user3))
+    print(lobby.stones_set())
 
     await lobby.end_round()
     print(await lobby.field_for_user(user))
