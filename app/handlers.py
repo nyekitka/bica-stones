@@ -112,20 +112,20 @@ async def leave_lobby(
     try:
         await lobby.kick_user(user)
     except AttributeError:
-        message.answer(messages.leaving_lobby_without_being_in(),
+        await message.answer(messages.leaving_lobby_without_being_in(),
                        reply_markup=keyboards.start_keyboard(user.is_admin()))
         return
     except wr.ActionException as ex:
-        message.answer(str(ex))
+        await message.answer(str(ex))
         return
     is_admin = user.is_admin()
-    message.answer(messages.left_lobby(lobby.lobby_id(), False),
+    await message.answer(messages.left_lobby(lobby.lobby_id(), False),
                    reply_markup=keyboards.start_keyboard(is_admin))
     if not is_admin:
         lobby_users = await lobby.users()
         num_players = len([user for user in lobby_users if not user.is_admin()])
         for other_user in lobby_users:
-            message.bot.send_message(
+            await message.bot.send_message(
                 chat_id=other_user.id, 
                 text=messages.left_lobby(num_players, True)
             )
@@ -139,13 +139,13 @@ async def start_game(
     if user.is_admin():
         lobby = await user.lobby()
         if lobby is None:
-            message.answer(messages.starting_not_being_in_lobby(),
+            await message.answer(messages.starting_not_being_in_lobby(),
                            reply_markup=keyboards.start_keyboard(True))
             return
         try:
             await lobby.start_game()
         except wr.ActionException as ex:
-            message.answer(str(ex))
+            await message.answer(str(ex))
             return
         await game_loop(message.bot, lobby)
         
@@ -244,8 +244,10 @@ async def choose_stone_to_leave(
         await user.choose_stone(number_of_stone)
     except ValueError:
         await message.answer(messages.incorrect_number())
+        return
     except wr.ActionException as ex:
         await message.answer(str(ex))
+        return
     await message.answer(
         text=messages.stone_chosen(number_of_stone),
         reply_markup=keyboards.ingame_keyboard(False, True)
