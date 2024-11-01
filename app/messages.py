@@ -61,19 +61,21 @@ def lobby_created(n: int):
     return Messages['lobby_created'].format(n)
 
 def lobby_entered(n: int, is_other: bool):
-    player_word = morph.parse('игрок')[0]
-    agreed_word = player_word.make_agree_with_number(n).word
     if is_other:
+        player_word = morph.parse('игрок')[0]
+        agreed_word = player_word.make_agree_with_number(n).word
         return Messages['lobby_entered_for_others'].format(n, agreed_word)
     else:
-        return Messages['lobby_entered'].format(n, agreed_word)
+        return Messages['lobby_entered'].format(n)
 
 def leaving_lobby_without_being_in():
     return Messages['leaving_lobby_without_being_in']
 
 def left_lobby(left: int, is_other: bool):
     if is_other:
-        return Messages['lobby_left_for_others'].format(left)
+        player_word = morph.parse('игрок')[0]
+        agreed_word = player_word.make_agree_with_number(left).word
+        return Messages['lobby_left_for_others'].format(left, agreed_word)
     else:
         return Messages['left_lobby'].format(left)
 
