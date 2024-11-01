@@ -41,7 +41,7 @@ async def enter_lobby(
     user = await wr.User.add_or_get(message.from_user.id)
     lobby = await user.lobby()
     if lobby is None:
-        lobbys = await wr.Lobby.lobby_ids()
+        lobbys = await wr.Lobby.lobby_ids(user.is_admin())
         if len(lobbys) == 0:
             await message.answer(messages.no_lobbies(user.is_admin()))
         else:
