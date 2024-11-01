@@ -149,6 +149,8 @@ class Lobby:
             raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
         if self.__deleted:
             raise ActionException(_DATA_DELETED)
+        if user.is_admin():
+            return
         async with connection_pool.connection() as conn:
             try:
                 cursor = conn.cursor()
@@ -456,11 +458,11 @@ class Lobby:
         result = {stone_id + 1: (False, []) for stone_id in range(self.__stones_cnt)}
         choices = await do_request("""
                        SELECT stone_id, player_id FROM lobby_%s.\"logs\" where round_number = %s;""" % (
-            self.__lobby_id, max(self.__round - 1, 0),))
+            self.__lobby_id, max(self.__round - 1, 0)))
         fake_namings = await self.fake_namings(user.id)
         if choices:
             for stone_id in self.__stones_set:
-                result[stone_id] = (False, list(map(lambda x: fake_namings[x[1]], filter(lambda x: x[0] == stone_id,
+                result[stone_id] = (False, list(map(lambda x: fake_namings[x[1]], filter(lambda x: x[0] == stone_id and x[1] != user.id,
                                                                                          choices))))
         user_log = list(filter(lambda x: x[1] == user.id, choices))
         if not user_log:
@@ -682,21 +684,27 @@ async def main():
     init_exceptions()
     lobby = await Lobby.get_lobby(2)
     user = await User.add_or_get(123)
+    user4 = await User.add_or_get(12356)
+    await user4.set_status('admin')
     user2 = await User.add_or_get(1234)
     user3 = await User.add_or_get(12345)
 
 
-    await lobby.join_user(user)
-    await lobby.join_user(user2)
-    await lobby.join_user(user3)
+    await lobby.join_user(user4)
+    # await lobby.join_user(user2)
+    # await lobby.join_user(user3)
 
-    await lobby.start_game()
+    #await lobby.start_game()
 
-    await user.choose_stone(1)
-    await user2.choose_stone(2)
+    # await user.choose_stone(1)
+    # await user2.choose_stone(2)
     # await user3.leave_stone()
 
-    await lobby.end_round()
+    # await lobby.end_round()
+    print(await lobby.field_for_user(user))
+    print(await lobby.field_for_user(user2))
+    print(await lobby.field_for_user(user3))
+    print(await lobby.field_for_user(user4))
     print(lobby)
 
     #await lobby.end_game()
