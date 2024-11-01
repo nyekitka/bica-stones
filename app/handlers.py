@@ -65,9 +65,12 @@ async def enter_chosen_lobby(
                               reply_markup=keyboards.inlobby_keyboard(is_admin))
     if not is_admin:
         lobby_users = await lobby.users()
+        num_players = len([user for user in lobby_users if not user.is_admin()])
         for other_user in lobby_users:
-            await call.bot.send_message(other_user.id, 
-                            messages.lobby_entered(len(lobby_users), True))
+            await call.bot.send_message(
+                chat_id=other_user.id, 
+                text=messages.lobby_entered(num_players, True)
+            )
         
 @router.message((F.text == 'Создать лобби'))
 async def create_lobby(
@@ -120,10 +123,11 @@ async def leave_lobby(
                    reply_markup=keyboards.start_keyboard(is_admin))
     if not is_admin:
         lobby_users = await lobby.users()
+        num_players = len([user for user in lobby_users if not user.is_admin()])
         for other_user in lobby_users:
             message.bot.send_message(
-                other_user.id, 
-                messages.left_lobby(len(lobby_users), True)
+                chat_id=other_user.id, 
+                text=messages.left_lobby(num_players, True)
             )
 
 @router.message((F.text == 'Начать игру'))
