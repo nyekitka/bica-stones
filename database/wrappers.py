@@ -149,7 +149,7 @@ class Lobby:
             raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
         if self.__deleted:
             raise ActionException(_DATA_DELETED)
-        if await user.is_admin():
+        if user.is_admin():
             return
         async with connection_pool.connection() as conn:
             try:
@@ -684,11 +684,13 @@ async def main():
     init_exceptions()
     lobby = await Lobby.get_lobby(2)
     user = await User.add_or_get(123)
+    user4 = await User.add_or_get(12356)
+    await user4.set_status('admin')
     user2 = await User.add_or_get(1234)
     user3 = await User.add_or_get(12345)
 
 
-    # await lobby.join_user(user)
+    await lobby.join_user(user4)
     # await lobby.join_user(user2)
     # await lobby.join_user(user3)
 
@@ -702,6 +704,7 @@ async def main():
     print(await lobby.field_for_user(user))
     print(await lobby.field_for_user(user2))
     print(await lobby.field_for_user(user3))
+    print(await lobby.field_for_user(user4))
     print(lobby)
 
     #await lobby.end_game()
