@@ -1,4 +1,3 @@
-import asyncio
 import string
 from collections import deque
 
@@ -9,15 +8,13 @@ import os
 import time
 from typing import Optional
 
-from dotenv import load_dotenv
 from psycopg import DatabaseError
 
 from data.exception import ActionException, _NO_SUCH_ELEMENT, _DATA_DELETED, _NOT_SYNCHRONIZED_WITH_DATABASE, \
     _GAME_IS_RUNNING, _ALREADY_IN_LOBBY, _NOT_IN_LOBBY, _GAME_IS_NOT_RUNNING, _ALREADY_CHOSEN_STONE, init_exceptions, \
     _NO_SUCH_STONE, _MAX_POSSIBLE_PLAYERS
-from database.query import connection_pool, do_request, init_pool
+from database.query import connection_pool, do_request
 
-from itertools import permutations
 
 
 def gen_rnd_matrix(lines: int, columns: int = None) -> tuple[tuple[int, ...], ...]:
@@ -411,7 +408,6 @@ class Lobby:
                     );""" %
                     (self.__lobby_id, columns_stones,))
                 for stones_namings, user in zip(stones_matrix, user_list):
-                    print(f"USER {user.id}: {stones_namings}")
                     self.__stones_namings[user.id] = stones_namings
                     await cursor.execute("""
                            INSERT INTO lobby_%s.\"stones_namings\" 
