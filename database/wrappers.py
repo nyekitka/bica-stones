@@ -211,8 +211,8 @@ class Lobby:
         Returns number of players with chosen stone
         """
         db_num_players = await do_request(
-            """SELECT count(1) FROM lobby_%s.\"logs\" WHERE stone_id is not null and round_number = %s;"""
-            % (self.__lobby_id, self.__round,))
+            """SELECT count(1) FROM lobby_%s.\"logs\" WHERE stone_id is not null and round_number = %s and move_number = %s;"""
+            % (self.__lobby_id, self.__round, self.__move_number))
         return db_num_players[0][0]
 
     @property
