@@ -168,18 +168,16 @@ async def round_loop(bot: Bot, lobby: wr.Lobby):
                 info = await lobby.field_for_user(user)
             except wr.ActionException as ex:
                 logging.error(str(ex))
-            is_picked = any(map(lambda x: x[0], info.values()))
             await bot.send_message(
                 chat_id=user.id,
                 text=messages.info_message(round, info),
-                parse_mode='MarkdownV2',
-                reply_markup=keyboards.ingame_keyboard(False, is_picked)
+                parse_mode='MarkdownV2'
             )
         else:
             await bot.send_message(
                 chat_id=user.id,
                 text=messages.round_started(round),
-                reply_markup=keyboards.ingame_keyboard(True)
+                reply_markup=keyboards.ingame_keyboard()
             )
     await asyncio.sleep(30)
 
@@ -216,56 +214,25 @@ async def game_loop(bot: Bot, lobby: wr.Lobby):
             )
     await lobby.end_game()
 
-@router.message((F.text == 'Выбрать камень'))
-async def choose_stone(
+@router.message()
+async def stone_picker(
     message: types.Message,
     state: FSMContext
 ) -> None:
-    await message.answer(messages.choose_stone())
-    await state.set_state(StoneState.choose_stone)
-
-@router.message((F.text == 'Отойти от камня'))
-async def leave_stone(
-    message: types.Message,
-    state: FSMContext
-) -> None:
-    user = await wr.User.add_or_get(message.from_user.id)
     try:
-        await user.leave_stone()
-    except wr.ActionException as ex:
-        reply_markup = None
-        if 'лобби' in str(ex):
-            reply_markup = keyboards.inlobby_keyboard(False)
+        number = int(message.text)
+        user = await wr.User.add_or_get(message.from_user.id)
+        if number == 0:
+            await user.leave_stone()
         else:
-            reply_markup = keyboards.ingame_keyboard(False, False)
-        await message.answer(
-            text=str(ex),
-            reply_markup=reply_markup
-        )
-        return
-    await message.answer(
-        text=messages.stone_left(),
-        reply_markup=keyboards.ingame_keyboard(False, False)
-    )
-
-@router.message(StoneState.choose_stone)
-async def choose_stone_to_leave(
-    message: types.Message,
-    state: FSMContext
-) -> None:
-    number_of_stone = None
-    user = await wr.User.add_or_get(message.from_user.id)
-    try:
-        number_of_stone = int(message.text)
-        await user.choose_stone(number_of_stone)
+            await user.choose_stone(number)
+        lobby = await user.lobby()
+        is_finished = await lobby.is_finished()
     except ValueError:
         await message.answer(messages.incorrect_number())
         return
     except wr.ActionException as ex:
         await message.answer(str(ex))
         return
-    await message.answer(
-        text=messages.stone_chosen(number_of_stone),
-        reply_markup=keyboards.ingame_keyboard(False, True)
-    )
-    await state.clear()
+
+    

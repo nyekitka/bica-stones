@@ -7,7 +7,7 @@ Messages = json.load(__messages_file)
 __messages_file.close()
 morph = MorphAnalyzer()
 
-def info_message(round: int, stones: dict[int, tuple[bool, list[int]]]):
+def info_message(round: int, stones: dict[int, tuple[bool, list[str]]]):
     info_str = ''
     sorted_keys = sorted(stones)
     for stone in sorted_keys:
