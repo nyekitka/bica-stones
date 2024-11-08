@@ -240,7 +240,7 @@ class Lobby:
             raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
         if self.__deleted:
             raise ActionException(_DATA_DELETED)
-        if not (self.__status == 'waiting' or (user.is_admin() and self.__status != 'finished')):
+        if not (self.__status == 'created' or (user.is_admin() and self.__status != 'finished')):
             raise ActionException(_GAME_IS_RUNNING)
         async with connection_pool.connection() as conn:
             try:
