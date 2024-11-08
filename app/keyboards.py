@@ -25,7 +25,20 @@ def inlobby_keyboard(isadmin: bool) -> ReplyKeyboardMarkup:
     builder.add(KeyboardButton(text='Выйти из лобби'))
     return builder.as_markup()
 
-def ingame_keyboard() -> ReplyKeyboardMarkup:
-    builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text='Выйти из лобби'))
-    return builder.as_markup()
+def ingame_keyboard(isadmin: bool) -> ReplyKeyboardMarkup | ReplyKeyboardRemove:
+    if isadmin:
+        return ReplyKeyboardMarkup(
+            keyboard=[[KeyboardButton(text='Выйти из лобби')]]
+        )
+    else:
+        return ReplyKeyboardRemove()
+    
+def between_rounds_keyboard(isadmin: bool) -> ReplyKeyboardMarkup | ReplyKeyboardRemove:
+    if isadmin:
+        return ReplyKeyboardMarkup(
+            keyboard=[[KeyboardButton(text='Запустить новый раунд')],
+                      [KeyboardButton(text='Закончить игру')]
+                      [KeyboardButton(text='Выйти из лобби')]]
+        )
+    else:
+        return ReplyKeyboardRemove()

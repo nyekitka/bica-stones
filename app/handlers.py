@@ -3,17 +3,20 @@ from aiogram.types import FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.filters import CommandStart
+
 import asyncio
 import os
 import logging
+from datetime import datetime, timedelta
+from typing import Optional, Dict
 
 from . import keyboards, messages
 from database import wrappers as wr
 
 class StoneState(StatesGroup):
     choose_number_of_stones = State()
+    choose_round_time = State()
     choose_stone = State()
-
 
 router = Router()
 
@@ -89,12 +92,11 @@ async def create_lobby(
 ) -> None:
     user = await wr.User.add_or_get(message.from_user.id)
     if user.is_admin():
-        await state.set_state(StoneState.choose_number_of_stones)
-        await message.answer(messages.choose_num_stones())
+        await state.set_state(StoneState.choose_round_time)
+        await message.answer(messages.choose_round_time())
 
-
-@router.message(StoneState.choose_number_of_stones)
-async def choose_num_of_stones(
+@router.message(StoneState.choose_round_time)
+async def choose_round_time(
     message: types.Message,
     state: FSMContext
 ) -> None:
@@ -104,11 +106,31 @@ async def choose_num_of_stones(
     except ValueError:
         await message.answer(messages.incorrect_number())
         return
+    if 1 <= number <= 60:
+        await state.set_state(StoneState.choose_number_of_stones)
+        await state.set_data({'minutes' : number})
+        await message.answer(messages.choose_num_stones())
+    else:
+        await message.answer(messages.incorrect_round_length(number))
+
+@router.message(StoneState.choose_number_of_stones)
+async def choose_num_of_stones(
+    message: types.Message,
+    state: FSMContext
+) -> Optional[int]:
+    minutes = await state.get_data()['minutes']
+    number = 0
+    try:
+        number = int(message.text)
+    except ValueError:
+        await message.answer(messages.incorrect_number())
+        return
     if 1 <= number <= 200:
         await state.clear()
-        lobby = await wr.Lobby.make_lobby(number)
+        lobby = await wr.Lobby.make_lobby(number, 30000, minutes*60000)
         await message.answer(messages.lobby_created(lobby.lobby_id()), 
                              reply_markup=keyboards.start_keyboard(True))
+        return lobby.lobby_id()
     else:
         await message.answer(messages.incorrect_num_stones(number))
 
@@ -154,14 +176,67 @@ async def start_game(
             return
         try:
             await lobby.start_game()
+            await round_loop(message.bot, lobby)
         except wr.ActionException as ex:
             await message.answer(str(ex))
             return
-        await game_loop(message.bot, lobby)
         
-async def round_loop(bot: Bot, lobby: wr.Lobby):
+@router.message((F.text == 'Запустить новый раунд'))
+async def start_new_round(
+    message: types.Message,
+    state: FSMContext
+) -> None:
+    user = await wr.User.add_or_get(message.from_user.id)
+    if user.is_admin():
+        lobby = await user.lobby()
+        if lobby is None:
+            await message.answer(messages.starting_not_being_in_lobby(),
+                           reply_markup=keyboards.start_keyboard(True))
+            return
+        try:
+            await round_loop(message.bot, lobby)
+        except wr.ActionException as ex:
+            await message.answer(str(ex))
+            return
+
+@router.message((F.text == 'Закончить игру'))
+async def end_game(
+    message: types.Message,
+    state: FSMContext
+) -> None:
+    user = await wr.User.add_or_get(message.from_user.id)
+    if user.is_admin():
+        lobby = await user.lobby()
+        users = await lobby.users()
+        bot = message.bot
+        for user in users:
+            if user.is_admin():
+                logs_path = await lobby.get_logs()
+                await bot.send_document(
+                    caption=messages.game_over(True),
+                    chat_id=user.id,
+                    document=FSInputFile(logs_path, f'Логи игры {lobby.lobby_id()}.csv'),
+                    reply_markup=keyboards.start_keyboard(True)
+                )
+                os.remove(logs_path)
+            else:
+                await bot.send_message(
+                    chat_id=user.id,
+                    text=messages.game_over(False),
+                    parse_mode='MarkdownV2',
+                    reply_markup=keyboards.start_keyboard(False)
+                )
+        try:
+            await lobby.end_game()
+        except wr.ActionException as ex:
+            await message.answer(str(ex))
+
+async def move_loop(
+        bot: Bot, 
+        lobby: wr.Lobby,
+        queue: asyncio.Queue
+) -> bool:
     users = await lobby.users()
-    round = lobby.round()
     for user in users:
         if not user.is_admin():
             try:
@@ -170,54 +245,53 @@ async def round_loop(bot: Bot, lobby: wr.Lobby):
                 logging.error(str(ex))
             await bot.send_message(
                 chat_id=user.id,
-                text=messages.info_message(round, info),
+                text=messages.info_message(info),
                 parse_mode='MarkdownV2'
             )
-        else:
-            await bot.send_message(
-                chat_id=user.id,
-                text=messages.round_started(round),
-                reply_markup=keyboards.ingame_keyboard()
-            )
-    await asyncio.sleep(30)
+    try:
+        start_time : datetime = await lobby.start_time()
+        tdelta = timedelta(milliseconds=lobby.round_duration_ms)
+        end_time = start_time + tdelta
+        now = datetime.now()
+        _ = await asyncio.wait_for(queue.get(), timeout=(end_time - now).seconds)
+        await lobby.end_move()
+        return True
+    except asyncio.TimeoutError:
+        await lobby.end_move()
+        return False
+    
 
-async def game_loop(bot: Bot, lobby: wr.Lobby):
-    while lobby.stones_left() != 0:
-        await round_loop(bot, lobby)
-        await lobby.end_round()
-        users = await lobby.users()
-        round = lobby.round()
-        for user in users:
-            await bot.send_message(
-                chat_id=user.id,
-                text=messages.round_ended(round - 1),
-                reply_markup=keyboards.remove_keyboard
-            )
-        await asyncio.sleep(10)
+async def round_loop(bot: Bot, lobby: wr.Lobby):
+    await lobby.start_round()
     users = await lobby.users()
+    minutes = lobby.move_max_duration_ms/60000
+    round = lobby.round()
+    queue = asyncio.Queue()
     for user in users:
-        if user.is_admin():
-            logs_path = await lobby.get_logs()
-            await bot.send_document(
-                caption=messages.game_over(True),
-                chat_id=user.id,
-                document=FSInputFile(logs_path, f'Логи игры {lobby.lobby_id()}.csv'),
-                reply_markup=keyboards.start_keyboard(True)
-            )
-            os.remove(logs_path)
-        else:
-            await bot.send_message(
-                chat_id=user.id,
-                text=messages.game_over(False),
-                parse_mode='MarkdownV2',
-                reply_markup=keyboards.start_keyboard(False)
-            )
-    await lobby.end_game()
+        await bot.send_message(
+            chat_id = user.id,
+            text = messages.round_started(round, minutes, user.is_admin()),
+            parse_mode='MarkdownV2',
+            reply_markup=keyboards.ingame_keyboard(user.is_admin())
+        )
+    is_finished = False
+    while lobby.stones_left() != 0 and not is_finished:
+        is_finished = await move_loop(bot, lobby, queue)
+        await asyncio.sleep(5)
+    stones_left = await lobby.stones_left()
+    for user in users:
+        await bot.send_message(
+            chat_id=user.id,
+            text=messages.round_ended(lobby.round(), stones_left, user.is_admin()),
+            reply_markup=keyboards.between_rounds_keyboard(user.is_admin())
+        )
+    await lobby.end_round()
 
-@router.message()
+@router.message(StoneState.choose_stone)
 async def stone_picker(
     message: types.Message,
-    state: FSMContext
+    state: FSMContext,
+    queues: Dict[int, asyncio.Queue]
 ) -> None:
     try:
         number = int(message.text)
@@ -227,7 +301,11 @@ async def stone_picker(
         else:
             await user.choose_stone(number)
         lobby = await user.lobby()
-        is_finished = await lobby.is_finished()
+        num_finishied = await lobby.num_players_with_chosen_stone()
+        num_players = lobby.number_of_players()
+        if num_finishied == num_players:
+            queue = queues[lobby.lobby_id()]
+            await queue.put('move finished')
     except ValueError:
         await message.answer(messages.incorrect_number())
         return

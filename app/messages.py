@@ -7,7 +7,7 @@ Messages = json.load(__messages_file)
 __messages_file.close()
 morph = MorphAnalyzer()
 
-def info_message(round: int, stones: dict[int, tuple[bool, list[str]]]):
+def info_message(stones: dict[int, tuple[bool, list[str]]]):
     info_str = ''
     sorted_keys = sorted(stones)
     for stone in sorted_keys:
@@ -25,10 +25,11 @@ def info_message(round: int, stones: dict[int, tuple[bool, list[str]]]):
             if is_here:
                 status = 'вы'
             else:
-                status = 'никого нет'
+                status = '\\-'
         status += ', '.join(map(str, players))
-        info_str += f'{stone} 🗿 \\- {status}\n'
-    return Messages['info_message'].format(round, info_str)
+        stone_name = f'{stone} 🗿' if stone != 0 else 'Не у камня'
+        info_str += f'{stone_name}: {status}\n'
+    return Messages['info_message'].format(info_str)
 
 def no_lobbies(isadmin: bool):
     if isadmin:
@@ -48,6 +49,9 @@ def welcome(name: str):
 def choose_lobby():
     return Messages['choose_lobby']
 
+def choose_round_time():
+    return Messages['choose_round_time']
+
 def choose_num_stones():
     return Messages['choose_num_stones']
 
@@ -56,6 +60,9 @@ def incorrect_number():
 
 def incorrect_num_stones(n: int):
     return Messages['incorrect_num_stones'].format(n)
+
+def incorrect_round_length(n: int):
+    return Messages['incorrect_round_length'].format(n)
 
 def lobby_created(n: int):
     return Messages['lobby_created'].format(n)
@@ -82,11 +89,24 @@ def left_lobby(left: int, is_other: bool):
 def starting_not_being_in_lobby():
     return Messages['starting_not_being_in_lobby']
 
-def round_started(round: int):
-    return Messages['round_started'].format(round)
+def round_started(round: int, minutes: int, isadmin: bool):
+    if isadmin:
+        return Messages['round_started_for_admin'].format(round, minutes)
+    else:
+        return Messages['round_started_for_user'].format(round, minutes)
 
-def round_ended(round: int):
-    return Messages['round_ended'].format(round, round + 1)
+def round_ended(round: int, stones_left: int, is_admin: bool):
+    if stones_left > 0:
+        word = morph.parse('камень')[0].make_agree_with_number(stones_left).word
+        if is_admin:
+            return Messages['round_ended_failure_for_admin'].format(round, stones_left, word)
+        else:
+            return Messages['round_ended_failure_for_players'].format(round, stones_left, word)
+    else:
+        if is_admin:
+            return Messages['round_ended_success_for_admin'].format(round)
+        else:
+            return Messages['round_ended_success_for_admin'].format(round)
 
 def choose_stone():
     return Messages['choose_stone']
