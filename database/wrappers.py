@@ -1,3 +1,4 @@
+import datetime
 import string
 from collections import deque
 
@@ -687,14 +688,18 @@ class Lobby:
                 result[stone_id_fake] = (
                     False, list(map(lambda x: fake_namings[x[1]], filter(lambda x: x[0] == stone_id and x[1] != user.id,
                                                                          choices))))
+            result[0] = (
+                False, list(map(lambda x: fake_namings[x[1]], filter(lambda x: x[0] is None and x[1] != user.id,
+                                                                     choices))))
         user_log = list(filter(lambda x: x[1] == user.id, choices))
         if not user_log:
             raise ActionException()
         choice = user_log[0]
         if choice and choice[0] is not None and choice[0] in self.__stones_set[self.__move_number]:
             fake_choice = await self.real_to_fake_stone_name(user.id, choice[0])
-
             result[fake_choice] = (True, result[fake_choice][1])
+        elif choice and choice[0] is None:
+            result[0] = (True, result[0][1])
         return result
 
     async def get_logs(self) -> str:
@@ -708,6 +713,13 @@ class Lobby:
         pd.DataFrame(result, columns=list(map(lambda x: x[0], columns))).sort_values(
             by=["round_number", "move_number"]).to_csv(path, index=False)
         return path
+
+    async def last_round_started(self) -> datetime.datetime:
+        result = await do_request("""
+        select date_time from lobby_%s.logs where round_number = %s
+        limit 1;
+        """ % (self.__lobby_id, self.__round,))
+        return result[0][0]
 
     async def delete(self):
         """
