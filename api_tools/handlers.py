@@ -1,10 +1,10 @@
 import asyncio
 from database.wrappers import Lobby, User
 from data.exception import ActionException, _NO_LOBBY, _ALREADY_IN_LOBBY, _NO_USER, _GAME_IS_RUNNING, \
-    _NOT_ENOUGH_PLAYERS, _GAME_IS_NOT_RUNNING, _NO_STONE
+    _NOT_ENOUGH_PLAYERS, _GAME_IS_NOT_RUNNING, _NO_STONE, _MOVE_WAS_NOT_MADE, _NOT_INFORMED
 from api_tools.schemes import *
 from collections import defaultdict
-from api_tools.utils import SetStones
+from api_tools.utils import SetStones, VariableWaiter
 
 lock = asyncio.Lock()
 
@@ -115,6 +115,7 @@ class GameApiHendler:
         self._lobby_id_to_stones = dict()
         self._informed_players = defaultdict(set)
         self._acted_players = defaultdict(set)
+        self._lobby_id_to_waiters = dict()
         
     async def add_player(self, user_id: SUserID):
         if user_id.user_id in self._player_id_to_user:
@@ -145,6 +146,7 @@ class GameApiHendler:
             await self._lobby_id_to_lobby[lobby_id].start_game()
             self._lobby_id_to_state[lobby_id] = 2
             self._lobby_id_to_stones[lobby_id] = SetStones(self._n_stones)
+            self._lobby_id_to_waiters[lobby_id] = VariableWaiter()
             
     async def get_env_info(self, user: SUserID):
         if user.user_id not in self._player_id_to_user:
@@ -161,9 +163,17 @@ class GameApiHendler:
             self._player_id_to_user[user.user_id])
         env_info = str(self._lobby_id_to_stones[lobby_id])
         self._informed_players[lobby_id].add(user.user_id)
+        
+        cnt_informed = len(self._informed_players[lobby_id])
+        async with lock:
+            await self._lobby_id_to_waiters[lobby_id].set_value(cnt_informed)
+        
         if len(self._informed_players[lobby_id]) == self._n_players:
             self._informed_players[lobby_id] = set()
             self._lobby_id_to_state[lobby_id] = 2
+            async with lock:
+                await asyncio.sleep(0.1)
+                await self._lobby_id_to_waiters[lobby_id].set_value(0)
         return {"env_info": env_info}
     
     async def make_move(self, move: SMoveMaker):
@@ -187,8 +197,16 @@ class GameApiHendler:
             pass    
         self._lobby_id_to_stones[lobby_id].make_move(user_id, stone_id)
         self._acted_players[lobby_id].add(user_id)
+        
+        cnt_acted = len(self._acted_players[lobby_id])
+        async with lock:
+            await self._lobby_id_to_waiters[lobby_id].set_value(cnt_acted)
+        
         if len(self._acted_players[lobby_id]) == self._n_players:
             self._acted_players[lobby_id] = set()
+            async with lock:
+                await asyncio.sleep(0.01)
+                await self._lobby_id_to_waiters[lobby_id].set_value(0)
             self._lobby_id_to_state[lobby_id] = 1
             self._lobby_id_to_stones[lobby_id].handle()
             if self._lobby_id_to_stones[lobby_id].get_cnt_stones() == 0:
@@ -235,6 +253,30 @@ class GameApiHendler:
         self._n_stones = config.n_stones
         self._n_players = config.n_players
         
+    async def waiting_for_next_state(self, user_id: int):
+        if user_id not in self._player_id_to_user:
+            raise ActionException(_NO_USER)
+        lobby_id = self._player_id_to_lobby_id[user_id]
+        if lobby_id not in self._lobby_id_to_state:
+            raise ActionException(_GAME_IS_NOT_RUNNING)
+        
+        if self._lobby_id_to_state[lobby_id] not in [1, 2]:
+            raise ActionException(_GAME_IS_NOT_RUNNING)
+        print(self._informed_players[lobby_id])
+        if self._lobby_id_to_state[lobby_id] == 1:
+            if user_id not in self._informed_players[lobby_id]:
+                raise ActionException(_MOVE_WAS_NOT_MADE)
+        else:
+            if user_id not in self._acted_players[lobby_id]:
+                raise ActionException(_MOVE_WAS_NOT_MADE)
+        
+        if lobby_id not in self._lobby_id_to_waiters:
+            self._lobby_id_to_waiters[lobby_id] = VariableWaiter()
+        cnt_players_in_lobby = 0
+        for cur_player_id, cur_lobby_id in self._player_id_to_lobby_id.items():
+            if lobby_id == cur_lobby_id:
+                cnt_players_in_lobby += 1
+        await self._lobby_id_to_waiters[lobby_id].wait_for_value(cnt_players_in_lobby)
         
     
         

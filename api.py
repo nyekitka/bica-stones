@@ -203,6 +203,17 @@ async def game_end_game(user: SUserID):
     return {"message": "The game has been ended"}
 
 
+@app.get("/game/wait_next_state/")
+async def game_wait_next_state(user: SUserID):
+    try:
+        await game.waiting_for_next_state(user.user_id)
+    except ActionException as e:
+        return {"message": str(e)}
+    #except Exception as e:
+    #    return {"message": _UNKNOWN_ERROR}
+    return {"message": "The state has been changed"}
+
+
 @app.post("/game/clean_history/")
 def clean_history(user: SUserID):
     game.reset()
@@ -215,3 +226,5 @@ def set_config(config: SGameConfig):
         return {"message": "Can't set config while. The game is in progress."}
     game.set_config(config)
     return {"message": "The config has been set"}
+
+

@@ -12,10 +12,12 @@ class VariableWaiter:
     async def wait_for_value(self, value):
         async with self.cond:
             while self.var != value:
+                print("Waiting for value {}".format(value))
                 await self.cond.wait()
             
     async def set_value(self, value):
         async with self.cond:
+            print("Setting value {}".format(value))
             self.var = value
             self.cond.notify_all()
             
