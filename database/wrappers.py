@@ -704,7 +704,8 @@ class Lobby:
         """
         path = os.path.join(f'{os.getenv('TEMP_DIR')}/logs_{self.__lobby_id}_{time.time()}.csv')
         result = await do_request("SELECT * FROM lobby_%s.\"logs\";" % (self.__lobby_id,))
-        pd.DataFrame(result, columns=["date_time", "player_id", "stone_id", "round_number", "move_number"]).sort_values(
+        columns = await do_request("SELECT column_name FROM information_schema.columns WHERE table_name = 'logs' and table_schema = 'lobby_%s';" % (self.__lobby_id,))
+        pd.DataFrame(result, columns=list(map(lambda x: x[0], columns))).sort_values(
             by=["round_number", "move_number"]).to_csv(path, index=False)
         return path
 
