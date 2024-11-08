@@ -704,8 +704,8 @@ class Lobby:
         """
         path = os.path.join(f'{os.getenv('TEMP_DIR')}/logs_{self.__lobby_id}_{time.time()}.csv')
         result = await do_request("SELECT * FROM lobby_%s.\"logs\";" % (self.__lobby_id,))
-        pd.DataFrame(result, columns=["date_time", "player_id", "stone_id", "round_number"]).sort_values(
-            by='round_number').to_csv(path)
+        pd.DataFrame(result, columns=["date_time", "player_id", "stone_id", "round_number", "move_number"]).sort_values(
+            by=["round_number", "move_number"]).to_csv(path, index=False)
         return path
 
     async def delete(self):
