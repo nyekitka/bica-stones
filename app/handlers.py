@@ -118,7 +118,8 @@ async def choose_num_of_stones(
     message: types.Message,
     state: FSMContext
 ) -> Optional[int]:
-    minutes = await state.get_data()['minutes']
+    data = await state.get_data()
+    minutes = data['minutes']
     number = 0
     try:
         number = int(message.text)
@@ -165,7 +166,8 @@ async def leave_lobby(
 @router.message((F.text == 'Начать игру'))
 async def start_game(
     message: types.Message,
-    state: FSMContext
+    state: FSMContext,
+    queues: Dict[int, asyncio.Queue]
 ) -> None:
     user = await wr.User.add_or_get(message.from_user.id)
     if user.is_admin():
@@ -176,7 +178,7 @@ async def start_game(
             return
         try:
             await lobby.start_game()
-            await round_loop(message.bot, lobby)
+            await round_loop(message.bot, lobby, queues[lobby.lobby_id()])
         except wr.ActionException as ex:
             await message.answer(str(ex))
             return
@@ -184,7 +186,8 @@ async def start_game(
 @router.message((F.text == 'Запустить новый раунд'))
 async def start_new_round(
     message: types.Message,
-    state: FSMContext
+    state: FSMContext,
+    queues: Dict[int, asyncio.Queue]
 ) -> None:
     user = await wr.User.add_or_get(message.from_user.id)
     if user.is_admin():
@@ -194,7 +197,7 @@ async def start_new_round(
                            reply_markup=keyboards.start_keyboard(True))
             return
         try:
-            await round_loop(message.bot, lobby)
+            await round_loop(message.bot, lobby, queues[lobby.lobby_id()])
         except wr.ActionException as ex:
             await message.answer(str(ex))
             return
@@ -249,7 +252,7 @@ async def move_loop(
                 parse_mode='MarkdownV2'
             )
     try:
-        start_time : datetime = await lobby.start_time()
+        start_time : datetime = await lobby.last_round_started()
         tdelta = timedelta(milliseconds=lobby.round_duration_ms)
         end_time = start_time + tdelta
         now = datetime.now()
@@ -261,12 +264,15 @@ async def move_loop(
         return False
     
 
-async def round_loop(bot: Bot, lobby: wr.Lobby):
+async def round_loop(
+        bot: Bot,
+        lobby: wr.Lobby,
+        queue: asyncio.Queue
+) -> None:
     await lobby.start_round()
     users = await lobby.users()
     minutes = lobby.move_max_duration_ms/60000
     round = lobby.round()
-    queue = asyncio.Queue()
     for user in users:
         await bot.send_message(
             chat_id = user.id,
