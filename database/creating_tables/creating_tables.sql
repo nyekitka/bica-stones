@@ -13,7 +13,10 @@ CREATE TABLE IF NOT EXISTS public."lobby" (
         num_players int not null check (num_players >= 0),
         status lobby_status not null default 'waiting',
         round int not null default 0,
-        stones_cnt int not null default 0
+        default_stones_cnt int not null default 0,
+        current_stones_cnt int not null default 0,
+        move_max_duration_ms int not null default 15,
+        round_duration_ms int not null default 120
     );
 
 CREATE TABLE IF NOT EXISTS public."user" (
@@ -22,5 +25,3 @@ CREATE TABLE IF NOT EXISTS public."user" (
         status user_status not null default 'player',
         current_lobby_id int references public."lobby" (id) ON DELETE SET NULL
     );
-
-select * from public."lobby";

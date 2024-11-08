@@ -124,8 +124,8 @@ class Lobby:
         raise ActionException(_NO_SUCH_ELEMENT)
 
     @classmethod
-    async def make_lobby(cls, stones: int, move_max_duration_ms: int = _DEFAULT_MOVE_DURATION,
-                         round_duration_ms: int = _DEFAULT_ROUND_DURATION):
+    async def make_lobby(cls, stones: int, round_duration_ms: int = _DEFAULT_ROUND_DURATION,
+                         move_max_duration_ms: int = _DEFAULT_MOVE_DURATION):
         """
         Creates a new lobby in the database and returns Lobby object
         """
