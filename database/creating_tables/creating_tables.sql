@@ -1,7 +1,7 @@
 DO $$
 BEGIN
 IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'lobby_status') THEN
-        CREATE TYPE public.lobby_status AS ENUM ('waiting', 'started', 'finished');
+        CREATE TYPE public.lobby_status AS ENUM ('created', 'waiting', 'started', 'finished');
     END IF;
 IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_status') THEN
         CREATE TYPE public.user_status AS ENUM ('admin', 'player');
