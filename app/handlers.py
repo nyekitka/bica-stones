@@ -128,7 +128,7 @@ async def choose_num_of_stones(
         return
     if 1 <= number <= 200:
         await state.clear()
-        lobby = await wr.Lobby.make_lobby(number, 30000, minutes*60000)
+        lobby = await wr.Lobby.make_lobby(number, minutes*60000)
         await message.answer(messages.lobby_created(lobby.lobby_id()), 
                              reply_markup=keyboards.start_keyboard(True))
         return lobby.lobby_id()
