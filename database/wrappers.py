@@ -225,6 +225,14 @@ class Lobby:
         return self.__move_max_duration_ms
 
     @property
+    def default_stones_cnt(self):
+        if hasattr(self, '__database_consistent'):
+            raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
+        if self.__deleted:
+            raise ActionException(_DATA_DELETED)
+        return self.__default_stones_cnt
+
+    @property
     def round_duration_ms(self):
         if hasattr(self, '__database_consistent'):
             raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
@@ -242,32 +250,29 @@ class Lobby:
             raise ActionException(_DATA_DELETED)
         if not (self.__status == 'created' or (user.is_admin() and self.__status != 'finished')):
             raise ActionException(_GAME_IS_RUNNING)
+        if await user.lobby():
+            raise ActionException(_ALREADY_IN_LOBBY)
         async with connection_pool.connection() as conn:
             try:
                 cursor = conn.cursor()
-
-                if len(await do_request("""SELECT * FROM lobby_%s.\"player_list\" where player_id = %s;""" % (
-                        self.__lobby_id, user.id))) != 0:
-                    raise ActionException(_ALREADY_IN_LOBBY)
 
                 await cursor.execute("""
                                 UPDATE public.\"user\"
                                 SET current_lobby_id = %s
                                 WHERE public.\"user\".tg_id = %s;
                                 """ % (self.__lobby_id, user.id))
-
-                await cursor.execute("""
-                                UPDATE public.\"lobby\"
-                                SET num_players = num_players + 1
-                                WHERE public.\"lobby\".id = %s;
-
-                                """ % (self.__lobby_id,))
-
                 await cursor.execute("""
                                 INSERT INTO lobby_%s.\"player_list\" (player_id)
                                 VALUES(%s);
                                 """ % (self.__lobby_id, user.id,))
-                self.__num_players += 1
+                if not user.is_admin():
+                    await cursor.execute("""
+                                    UPDATE public.\"lobby\"
+                                    SET num_players = num_players + 1
+                                    WHERE public.\"lobby\".id = %s;
+    
+                                    """ % (self.__lobby_id,))
+                    self.__num_players += 1
                 user.set_lobby(self)
             except DatabaseError as e:
                 await conn.rollback()
@@ -288,6 +293,10 @@ class Lobby:
             f"SELECT player_id FROM lobby_{self.__lobby_id}.\"player_list\"")
         return [await User.add_or_get(user[0]) for user in result]
 
+    async def players(self):
+        user_list = await self.users()
+        return [player for player in user_list if not player.is_admin()]
+
     async def kick_user(self, user):
         if hasattr(self, '__database_consistent'):
             raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
@@ -305,16 +314,18 @@ class Lobby:
                                 """ % (user.id,))
 
                 await cursor.execute("""
-                                UPDATE public.\"lobby\"
-                                SET num_players = num_players - 1
-                                WHERE public.\"lobby\".id = %s;
-                                """ % (self.__lobby_id,))
-
-                await cursor.execute("""
                                 DELETE from lobby_%s.\"player_list\"
                                 WHERE player_id=%s;
                                 """ % (self.__lobby_id, user.id,))
-                self.__num_players -= 1
+
+                if not user.is_admin():
+                    await cursor.execute("""
+                                    UPDATE public.\"lobby\"
+                                    SET num_players = num_players - 1
+                                    WHERE public.\"lobby\".id = %s;
+                                    """ % (self.__lobby_id,))
+
+                    self.__num_players -= 1
             except DatabaseError as e:
                 await conn.rollback()
                 raise ActionException(e.sqlstate) from e
@@ -391,7 +402,7 @@ class Lobby:
                 cursor = conn.cursor()
                 self.__current_stones_cnt = self.__default_stones_cnt
                 stones_matrix = gen_rnd_matrix(self.__num_players, self.__current_stones_cnt)
-                user_list = await self.users()
+                user_list = await self.players()
 
                 self.__stones_namings = {}
                 await cursor.execute("""
@@ -527,7 +538,7 @@ class Lobby:
                            WHERE public.\"lobby\".id = %s;
                            """ % (self.__round + 1, len(self.__stones_set[self.__move_number]), self.__lobby_id))
 
-                for user in (await self.users()):
+                for user in (await self.players()):
                     if user.chosen_stone is not None:
                         await user.leave_stone()
 
@@ -563,7 +574,7 @@ class Lobby:
             try:
                 cursor = conn.cursor()
 
-                for player in await self.users():
+                for player in await self.players():
                     await cursor.execute("""
                           SELECT stone_id FROM lobby_%s.\"logs\" where player_id = %s and round_number = %s AND move_number = %s;""" % (
                         self.__lobby_id, player.id, self.__round, self.__move_number))
@@ -638,7 +649,7 @@ class Lobby:
         return self.__status
 
     async def start_move_logs(self):
-        for player in await self.users():
+        for player in await self.players():
             await do_request("""
                INSERT INTO lobby_%s.\"logs\" (player_id, stone_id, round_number, move_number) VALUES (%s, %s, %s, %s)""" % (
                 self.__lobby_id, player.id, 'NULL', self.__round, self.__move_number))
