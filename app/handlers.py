@@ -224,7 +224,8 @@ async def end_game(
                     caption=messages.game_over(True),
                     chat_id=user.id,
                     document=FSInputFile(logs_path, f'Логи игры {lobby.lobby_id()}.csv'),
-                    reply_markup=keyboards.start_keyboard(True)
+                    reply_markup=keyboards.start_keyboard(True),
+                    parse_mode='MarkdownV2'
                 )
                 os.remove(logs_path)
             else:
