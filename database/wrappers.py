@@ -577,15 +577,8 @@ class Lobby:
 
                 for player in await self.players():
                     await cursor.execute("""
-                          SELECT stone_id FROM lobby_%s.\"logs\" where player_id = %s and round_number = %s AND move_number = %s;""" % (
-                        self.__lobby_id, player.id, self.__round, self.__move_number))
-                    result = await cursor.fetchone()
-                    result = result[0]
-                    if result not in self.__stones_set[self.__move_number]:
-                        result = "NULL"
-                    await cursor.execute("""
-                       INSERT INTO lobby_%s.\"logs\" (player_id, stone_id, round_number, move_number) VALUES (%s, %s, %s, %s)""" % (
-                        self.__lobby_id, player.id, result, self.__round, self.__move_number + 1))
+                       INSERT INTO lobby_%s.\"logs\" (player_id, stone_id, round_number, move_number) VALUES (%s, NULL, %s, %s)""" % (
+                        self.__lobby_id, player.id, self.__round, self.__move_number + 1))
 
                 await cursor.execute("""
                            INSERT INTO lobby_%s.\"stones_list\" (round_num, move_num, stones) VALUES (
