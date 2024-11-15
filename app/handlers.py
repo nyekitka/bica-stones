@@ -264,6 +264,9 @@ async def move_loop(
         tdelta = timedelta(milliseconds=lobby.round_duration_ms)
         end_time = start_time + tdelta
         now = datetime.now()
+        if now >= end_time:
+            await lobby.end_move()
+            return True
         _ = await asyncio.wait_for(queue.get(), timeout=(end_time - now).seconds)
         logging.debug('I got a signal')
         await lobby.end_move()
