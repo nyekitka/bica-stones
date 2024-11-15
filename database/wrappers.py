@@ -697,13 +697,13 @@ class Lobby:
             raise ActionException(_DATA_DELETED)
         if user.id not in list(map(lambda x: x.id, await self.users())):
             raise ActionException(_NOT_IN_LOBBY)
-        result = {await self.real_to_fake_stone_name(user.id, stone_id): (False, []) for stone_id in self.__stones_set[self.__move_number]}
+        result = {await self.real_to_fake_stone_name(user.id, stone_id): (False, []) for stone_id in self.__stones_set[max(1, self.__move_number-1)]}
         choices = await do_request("""
                        SELECT stone_id, player_id FROM lobby_%s.\"logs\" where round_number = %s and move_number = %s;""" % (
             self.__lobby_id, self.__round, max(1, self.__move_number - 1),))
         fake_namings = await self.player_naming()
         if choices:
-            for stone_id in self.__stones_set[self.__move_number]:
+            for stone_id in self.__stones_set[max(1, self.__move_number - 1)]:
                 stone_id_fake = await self.real_to_fake_stone_name(user.id, stone_id)
                 result[stone_id_fake] = (
                     False, list(map(lambda x: fake_namings[x[1]], filter(lambda x: x[0] == stone_id and x[1] != user.id,
@@ -715,10 +715,10 @@ class Lobby:
         if not user_log:
             raise ActionException()
         choice = user_log[0]
-        if choice and choice[0] is not None and choice[0] in self.__stones_set[self.__move_number]:
+        if choice and choice[0] is not None and choice[0] in self.__stones_set[max(1, self.__move_number - 1)]:
             fake_choice = await self.real_to_fake_stone_name(user.id, choice[0])
             result[fake_choice] = (True, result[fake_choice][1])
-        elif choice and choice[0] is None:
+        elif choice and (choice[0] is None or choice[0] not in self.__stones_set[max(1, self.__move_number - 1)]):
             result[0] = (True, result[0][1])
         return result
 
