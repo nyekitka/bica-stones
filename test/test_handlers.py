@@ -7,35 +7,21 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 
 # from utils import TEST_USER, TEST_USER_CHAT, TEST_MESSAGE
-# from app.handlers import start
+# import app.handlers as h
 import app.messages as msg
+import app.keyboards as kboards
 
-
-class TestMessageHandlers:
-    @pytest.mark.parametrize(
-            "round, stones, real_msg",
-            [(1, {1 : (False, [1, 2])}, "**Раунд 1**\n__Ситуация на поле:__\n\n1 🗿 \\- игроки 1, 2\n"),
-             (2, {2 : (False, []), 1 : (True, [1])}, "**Раунд 2**\n__Ситуация на поле:__\n\n1 🗿 \\- вы и игрок 1\n2 🗿 \\- никого нет\n"),
-             (3, {1 : (True, [1, 2]), 2: (True, [])}, "**Раунд 3**\n__Ситуация на поле:__\n\n1 🗿 \\- вы и игроки 1, 2\n2 🗿 \\- вы\n")
-             ]
-    )
-    def test_info_message(
-        self,
-        round: int, 
-        stones: dict[int, tuple[bool, list[int]]],
-        real_msg: str
-    ):
-        assert (msg.info_message(round, stones) == real_msg)
-    
+class TestMessageHandlers:    
     def test_correct_json_names(self):
+        assert ('{' not in msg.info_message())
         assert ('{' not in msg.no_lobbies(True))
         assert ('{' not in msg.no_lobbies(False))
         assert ('{' not in msg.lobby_is_running())
         assert ('{' not in msg.useless_start())
         assert ('{' not in msg.welcome("Nikita"))
         assert ('{' not in msg.choose_lobby())
-        assert ('{' not in msg.choose_num_stones())
         assert ('{' not in msg.choose_round_time())
+        assert ('{' not in msg.choose_num_stones())
         assert ('{' not in msg.incorrect_number())
         assert ('{' not in msg.incorrect_num_stones(1))
         assert ('{' not in msg.incorrect_round_length(1))
@@ -46,13 +32,19 @@ class TestMessageHandlers:
         assert ('{' not in msg.left_lobby(1, True))
         assert ('{' not in msg.left_lobby(1, False))
         assert ('{' not in msg.starting_not_being_in_lobby())
-        assert ('{' not in msg.round_started(1))
-        assert ('{' not in msg.round_ended(1))
+        assert ('{' not in msg.round_started(1, 1, True))
+        assert ('{' not in msg.round_started(1, 1, False))
+        assert ('{' not in msg.round_ended(1, 1, False))
+        assert ('{' not in msg.round_ended(1, 0, False))
+        assert ('{' not in msg.round_ended(1, 1, True))
+        assert ('{' not in msg.round_ended(1, 0, True))
         assert ('{' not in msg.choose_stone())
         assert ('{' not in msg.stone_left())
         assert ('{' not in msg.stone_chosen(1))
         assert ('{' not in msg.game_over(True))
         assert ('{' not in msg.game_over(False))
+        assert ('{' not in msg.no_stone_to_pick())
+        assert ('{' not in msg.choice_is_made())
     
     @pytest.mark.parametrize(
             "number, message",
@@ -70,3 +62,16 @@ class TestMessageHandlers:
     )
     def test_agreement(self, number, message):
         assert (msg.lobby_entered(number, True) == message)
+    
+    @pytest.mark.parametrize(
+            "func, args",
+            [[msg.round_started, (1, 1, False)],
+             [msg.round_started, (1, 1, True)],
+             [msg.game_over, (True,)],
+             [msg.game_over, (False,)]]
+    )
+    def test_markdown_escaping(self, func, args):
+        escaping_symbols='[]()~`>#+-=!.'
+        res : str = func(*args)
+        for symbol in escaping_symbols:
+            assert (res.count(symbol) == res.count('\\' + symbol))

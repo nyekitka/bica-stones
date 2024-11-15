@@ -3,6 +3,8 @@ from aiogram.types import (ReplyKeyboardMarkup, KeyboardButton,
                            ReplyKeyboardRemove)
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
+from math import ceil
+
 remove_keyboard = ReplyKeyboardRemove()
 
 def start_keyboard(isadmin: bool) -> ReplyKeyboardMarkup:
@@ -32,12 +34,39 @@ def ingame_keyboard(isadmin: bool) -> ReplyKeyboardMarkup | ReplyKeyboardRemove:
         )
     else:
         return ReplyKeyboardRemove()
-    
+
+def __list_for_stone(is_here: bool, info: list[int]) -> str:
+    s = ''
+    if is_here:
+        s += '@ '
+    s += ' '.join(map(str, info))
+    return s
+
+def field_keyboard(info: dict[int, tuple[int, list[int]]], max_stone: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text=f'🏠 {__list_for_stone(*info[0])}', 
+        callback_data='pick 0'
+    )
+    for key in range(1, max_stone + 1):
+        if key in info.keys():
+            builder.button(
+                text=f'🪨 {__list_for_stone(*info[key])}',
+                callback_data=f'pick {key}'
+            )
+        else:
+            builder.button(
+                text='❌',
+                callback_data='pick empty'
+            )
+    builder.adjust(1, ceil(max_stone**0.5))
+    return builder.as_markup()
+
 def between_rounds_keyboard(isadmin: bool) -> ReplyKeyboardMarkup | ReplyKeyboardRemove:
     if isadmin:
         return ReplyKeyboardMarkup(
             keyboard=[[KeyboardButton(text='Запустить новый раунд')],
-                      [KeyboardButton(text='Закончить игру')]
+                      [KeyboardButton(text='Закончить игру')],
                       [KeyboardButton(text='Выйти из лобби')]]
         )
     else:

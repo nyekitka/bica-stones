@@ -9,6 +9,7 @@ import os
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict
+from random import randint
 
 from . import keyboards, messages
 from database import wrappers as wr
@@ -62,11 +63,11 @@ async def enter_chosen_lobby(
     try:
         await lobby.join_user(user)
     except wr.ActionException as ex:
-        call.answer(str(ex))
+        await call.answer(str(ex))
         return
     await call.answer('')
     is_admin = user.is_admin()
-    if lobby.status() == 'waiting':
+    if lobby.status() == 'created':
         await call.message.answer(
             text=messages.lobby_entered(lobby_id, False),
             reply_markup=keyboards.inlobby_keyboard(is_admin)
@@ -78,7 +79,7 @@ async def enter_chosen_lobby(
         )
     if not is_admin:
         lobby_users = await lobby.users()
-        num_players = len([user for user in lobby_users if not user.is_admin()])
+        num_players = lobby.number_of_players()
         for other_user in lobby_users:
             await call.bot.send_message(
                 chat_id=other_user.id, 
@@ -156,7 +157,7 @@ async def leave_lobby(
                    reply_markup=keyboards.start_keyboard(is_admin))
     if not is_admin:
         lobby_users = await lobby.users()
-        num_players = len([user for user in lobby_users if not user.is_admin()])
+        num_players = lobby.number_of_players()
         for other_user in lobby_users:
             await message.bot.send_message(
                 chat_id=other_user.id, 
@@ -175,6 +176,10 @@ async def start_game(
         if lobby is None:
             await message.answer(messages.starting_not_being_in_lobby(),
                            reply_markup=keyboards.start_keyboard(True))
+            return
+        if lobby.number_of_players() < 2:
+            await message.answer(messages.not_enough_players_for_start(),
+                                 reply_markup=keyboards.inlobby_keyboard(True))
             return
         try:
             await lobby.start_game()
@@ -248,22 +253,22 @@ async def move_loop(
                 logging.error(str(ex))
             await bot.send_message(
                 chat_id=user.id,
-                text=messages.info_message(info),
-                parse_mode='MarkdownV2'
+                text=messages.info_message(),
+                reply_markup=keyboards.field_keyboard(info, lobby.default_stones_cnt)
             )
     try:
-        start_time : datetime = await lobby.last_round_started()
+        start_time = await lobby.last_round_started()
         tdelta = timedelta(milliseconds=lobby.round_duration_ms)
         end_time = start_time + tdelta
         now = datetime.now()
         _ = await asyncio.wait_for(queue.get(), timeout=(end_time - now).seconds)
-        await lobby.end_move()
-        return True
-    except asyncio.TimeoutError:
+        logging.debug('I got a signal')
         await lobby.end_move()
         return False
+    except asyncio.TimeoutError:
+        await lobby.end_move()
+        return True
     
-
 async def round_loop(
         bot: Bot,
         lobby: wr.Lobby,
@@ -271,7 +276,7 @@ async def round_loop(
 ) -> None:
     await lobby.start_round()
     users = await lobby.users()
-    minutes = lobby.move_max_duration_ms/60000
+    minutes = int(lobby.round_duration_ms/60000)
     round = lobby.round()
     for user in users:
         await bot.send_message(
@@ -281,10 +286,10 @@ async def round_loop(
             reply_markup=keyboards.ingame_keyboard(user.is_admin())
         )
     is_finished = False
-    while lobby.stones_left() != 0 and not is_finished:
+    while lobby.stones_left() > 0 and not is_finished:
         is_finished = await move_loop(bot, lobby, queue)
         await asyncio.sleep(5)
-    stones_left = await lobby.stones_left()
+    stones_left = lobby.stones_left()
     for user in users:
         await bot.send_message(
             chat_id=user.id,
@@ -293,30 +298,33 @@ async def round_loop(
         )
     await lobby.end_round()
 
-@router.message(StoneState.choose_stone)
-async def stone_picker(
-    message: types.Message,
+@router.callback_query((F.data.startswith('pick')))
+async def pick_stone(
+    call: types.CallbackQuery,
     state: FSMContext,
-    queues: Dict[int, asyncio.Queue]
+    queues: list[asyncio.Queue]
 ) -> None:
-    try:
-        number = int(message.text)
-        user = await wr.User.add_or_get(message.from_user.id)
-        if number == 0:
-            await user.leave_stone()
-        else:
-            await user.choose_stone(number)
+    _, stone = call.data.split(' ')
+    if stone == 'empty':
+        await call.answer(messages.no_stone_to_pick())
+    else:
+        stone = int(stone)
+        user = await wr.User.add_or_get(call.from_user.id)
+        try:
+            if stone == 0:
+                await user.leave_stone()
+            else:
+                await user.choose_stone(stone)
+        except wr.ActionException as ex:
+            await call.answer(str(ex))
+            return
         lobby = await user.lobby()
         num_finishied = await lobby.num_players_with_chosen_stone()
         num_players = lobby.number_of_players()
+        logging.debug(f'{num_finishied}/{num_players} picked a stone')
         if num_finishied == num_players:
             queue = queues[lobby.lobby_id()]
             await queue.put('move finished')
-    except ValueError:
-        await message.answer(messages.incorrect_number())
-        return
-    except wr.ActionException as ex:
-        await message.answer(str(ex))
-        return
-
-    
+            logging.debug('signal is sent')
+        await call.answer(messages.choice_is_made())
+        await call.message.delete()

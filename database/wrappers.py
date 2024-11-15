@@ -204,7 +204,7 @@ class Lobby:
         if is_for_admin:
             db_lobbies = await do_request(f"SELECT id FROM public.\"lobby\" where status NOT IN ('finished');")
         else:
-            db_lobbies = await do_request(f"SELECT id FROM public.\"lobby\" where status IN ('waiting');")
+            db_lobbies = await do_request(f"SELECT id FROM public.\"lobby\" where status IN ('created');")
         return [lobbies[0] for lobbies in db_lobbies]
 
     async def num_players_with_chosen_stone(self):

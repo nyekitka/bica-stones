@@ -7,29 +7,8 @@ Messages = json.load(__messages_file)
 __messages_file.close()
 morph = MorphAnalyzer()
 
-def info_message(stones: dict[int, tuple[bool, list[str]]]):
-    info_str = ''
-    sorted_keys = sorted(stones)
-    for stone in sorted_keys:
-        is_here, players = stones[stone]
-        players.sort()
-        status=''
-        if is_here:
-            status = 'вы и '
-        if len(players) > 0:
-            if len(players) > 1:
-                status += 'игроки '
-            else:
-                status += 'игрок '
-        else:
-            if is_here:
-                status = 'вы'
-            else:
-                status = '\\-'
-        status += ', '.join(map(str, players))
-        stone_name = f'{stone} 🗿' if stone != 0 else 'Не у камня'
-        info_str += f'{stone_name}: {status}\n'
-    return Messages['info_message'].format(info_str)
+def info_message():
+    return Messages['info_message']
 
 def no_lobbies(isadmin: bool):
     if isadmin:
@@ -89,11 +68,15 @@ def left_lobby(left: int, is_other: bool):
 def starting_not_being_in_lobby():
     return Messages['starting_not_being_in_lobby']
 
+def not_enough_players_for_start():
+    return Messages['not_enough_players_for_start']
+
 def round_started(round: int, minutes: int, isadmin: bool):
+    word = morph.parse('минута')[0].make_agree_with_number(minutes).word
     if isadmin:
-        return Messages['round_started_for_admin'].format(round, minutes)
+        return Messages['round_started_for_admin'].format(round, minutes, word)
     else:
-        return Messages['round_started_for_user'].format(round, minutes)
+        return Messages['round_started_for_user'].format(round, minutes, word)
 
 def round_ended(round: int, stones_left: int, is_admin: bool):
     if stones_left > 0:
@@ -122,3 +105,9 @@ def game_over(is_admin: bool):
         return Messages['game_over_for_admin']
     else:
         return Messages['game_over_for_user']
+    
+def no_stone_to_pick():
+    return Messages['no_stone_to_pick']
+
+def choice_is_made():
+    return Messages['choice_is_made']
