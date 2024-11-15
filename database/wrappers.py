@@ -891,8 +891,6 @@ class User:
             raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
         if self.__deleted:
             raise ActionException(_DATA_DELETED)
-        if self.chosen_stone is not None:
-            raise ActionException(_ALREADY_CHOSEN_STONE)
         if await self.lobby() is None:
             raise ActionException(_NOT_IN_LOBBY)
         if (await self.lobby()).status() != 'started':
