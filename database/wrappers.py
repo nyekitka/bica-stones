@@ -709,7 +709,7 @@ class Lobby:
                     False, list(map(lambda x: fake_namings[x[1]], filter(lambda x: x[0] == stone_id and x[1] != user.id,
                                                                          choices))))
             result[0] = (
-                False, list(map(lambda x: fake_namings[x[1]], filter(lambda x: x[0] is None and x[1] != user.id,
+                False, list(map(lambda x: fake_namings[x[1]], filter(lambda x: (x[0] is None or x[0] not in self.__stones_set[max(1, self.__move_number - 1)]) and x[1] != user.id,
                                                                      choices))))
         user_log = list(filter(lambda x: x[1] == user.id, choices))
         if not user_log:
