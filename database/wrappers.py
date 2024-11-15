@@ -376,6 +376,28 @@ class Lobby:
                                 SET status = 'waiting', round = %s
                                 WHERE public.\"lobby\".id = %s;
                                 """ % (self.__round, self.__lobby_id))
+                user_list = await self.players()
+                namings_generator = player_naming_generator()
+                player_namings = [next(namings_generator) for _ in range(self.__num_players)]
+                np.random.shuffle(player_namings)
+
+                await cursor.execute(
+                    """DROP TABLE IF EXISTS lobby_%s.\"player_namings\";""" %
+                    (self.__lobby_id,))
+                await cursor.execute(
+                    """CREATE TABLE IF NOT EXISTS lobby_%s.\"player_namings\"
+                    (
+                       player_id bigint not null,
+                       naming varchar(16) not null
+                    );""" %
+                    (self.__lobby_id,))
+
+                for i, player_naming in enumerate(player_namings):
+                    await cursor.execute(
+                        """INSERT INTO lobby_%s.\"player_namings\"
+                        VALUES (%s, '%s');""" %
+                        (self.__lobby_id, user_list[i].id, player_naming))
+
                 self.__status = 'waiting'
             except DatabaseError as e:
                 await conn.rollback()
@@ -425,27 +447,6 @@ class Lobby:
                            INSERT INTO lobby_%s.\"stones_namings\" 
                            VALUES(%s, %s);
                            """ % (self.__lobby_id, user.id, ','.join(map(str, stones_namings))))
-
-                namings_generator = player_naming_generator()
-                player_namings = [next(namings_generator) for _ in range(self.__num_players)]
-                np.random.shuffle(player_namings)
-
-                await cursor.execute(
-                    """DROP TABLE IF EXISTS lobby_%s.\"player_namings\";""" %
-                    (self.__lobby_id,))
-                await cursor.execute(
-                    """CREATE TABLE IF NOT EXISTS lobby_%s.\"player_namings\"
-                    (
-                       player_id bigint not null,
-                       naming varchar(16) not null
-                    );""" %
-                    (self.__lobby_id,))
-
-                for i, player_naming in enumerate(player_namings):
-                    await cursor.execute(
-                        """INSERT INTO lobby_%s.\"player_namings\"
-                        VALUES (%s, '%s');""" %
-                        (self.__lobby_id, user_list[i].id, player_naming))
 
                 await cursor.execute(
                     """INSERT INTO lobby_%s.\"stones_list\" (round_num, move_num, stones) VALUES
