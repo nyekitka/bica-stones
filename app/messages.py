@@ -72,11 +72,11 @@ def not_enough_players_for_start():
     return Messages['not_enough_players_for_start']
 
 def round_started(round: int, minutes: int, isadmin: bool):
-    word = morph.parse('минута')[0].make_agree_with_number(minutes).word
+    word = morph.parse('минута')[0].make_agree_with_number(minutes)
     if isadmin:
-        return Messages['round_started_for_admin'].format(round, minutes, word)
+        return Messages['round_started_for_admin'].format(round, minutes, word.inflect({'gent'}).word)
     else:
-        return Messages['round_started_for_user'].format(round, minutes, word)
+        return Messages['round_started_for_user'].format(round, minutes, word.word)
 
 def round_ended(round: int, stones_left: int, is_admin: bool):
     if stones_left > 0:
@@ -111,3 +111,6 @@ def no_stone_to_pick():
 
 def choice_is_made():
     return Messages['choice_is_made']
+
+def inactive_keyboard():
+    return Messages['inactive_keyboard']

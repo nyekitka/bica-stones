@@ -305,12 +305,18 @@ async def pick_stone(
     state: FSMContext,
     queues: list[asyncio.Queue]
 ) -> None:
-    _, stone = call.data.split(' ')
+    _, stone, round = call.data.split(' ')
     if stone == 'empty':
         await call.answer(messages.no_stone_to_pick())
     else:
         stone = int(stone)
+        round = int(round)
         user = await wr.User.add_or_get(call.from_user.id)
+        lobby = await user.lobby()
+        if lobby.round() != round:
+            await call.answer(messages.inactive_keyboard())
+            await call.message.delete()
+            return
         try:
             if stone == 0:
                 await user.leave_stone()
