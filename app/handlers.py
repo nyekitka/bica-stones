@@ -72,11 +72,13 @@ async def enter_chosen_lobby(
             text=messages.lobby_entered(lobby_id, False),
             reply_markup=keyboards.inlobby_keyboard(is_admin)
         )
+        await call.message.delete()
     else:
         await call.message.answer(
             text=messages.lobby_entered(lobby_id, False),
             reply_markup=keyboards.ingame_keyboard(is_admin)
         )
+        await call.message.delete()
     if not is_admin:
         lobby_users = await lobby.users()
         num_players = lobby.number_of_players()
@@ -255,7 +257,7 @@ async def move_loop(
             await bot.send_message(
                 chat_id=user.id,
                 text=messages.info_message(),
-                reply_markup=keyboards.field_keyboard(info, lobby.default_stones_cnt)
+                reply_markup=keyboards.field_keyboard(info, lobby.default_stones_cnt, lobby.round())
             )
     try:
         start_time = await lobby.last_round_started()
