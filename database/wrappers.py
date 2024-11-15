@@ -597,6 +597,11 @@ class Lobby:
                     ','.join(list(map(str, self.__stones_set[self.__move_number])))))
 
                 self.__move_number += 1
+
+                for user in (await self.players()):
+                    if user.chosen_stone is not None:
+                        await user.leave_stone()
+
                 self.__stones_set[self.__move_number] = self.__stones_set[self.__move_number - 1].copy()
                 self.__current_stones_cnt = len(self.__stones_set[self.__move_number])
             except DatabaseError as e:
@@ -638,6 +643,16 @@ class Lobby:
         if self.__deleted:
             raise ActionException(_DATA_DELETED)
         return self.__round
+
+    def move(self) -> Optional[int]:
+        """
+        Returns the move number of current round.
+        """
+        if hasattr(self, '__database_consistent'):
+            raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
+        if self.__deleted:
+            raise ActionException(_DATA_DELETED)
+        return self.__move_number
 
     def status(self) -> str:
         """
@@ -692,7 +707,7 @@ class Lobby:
         result = {await self.real_to_fake_stone_name(user.id, stone_id): (False, []) for stone_id in self.__stones_set[self.__move_number]}
         choices = await do_request("""
                        SELECT stone_id, player_id FROM lobby_%s.\"logs\" where round_number = %s and move_number = %s;""" % (
-            self.__lobby_id, self.__round, self.__move_number,))
+            self.__lobby_id, self.__round, max(1, self.__move_number - 1),))
         fake_namings = await self.player_naming()
         if choices:
             for stone_id in self.__stones_set[self.__move_number]:
@@ -880,8 +895,8 @@ class User:
         await do_request("""
         UPDATE lobby_%s.\"logs\"
         SET stone_id = NULL
-        WHERE player_id = %s AND round_number = %s;""" % (
-            self.__current_lobby_id, self.__tg_id, (await self.lobby()).round()))
+        WHERE player_id = %s AND round_number = %s AND move_number = %s;""" % (
+            self.__current_lobby_id, self.__tg_id, (await self.lobby()).round(), (await self.lobby()).move()))
 
     async def choose_stone(self, stone_id: int):
         """
@@ -891,6 +906,8 @@ class User:
             raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
         if self.__deleted:
             raise ActionException(_DATA_DELETED)
+        if self.chosen_stone is not None:
+            raise ActionException(_ALREADY_CHOSEN_STONE)
         if await self.lobby() is None:
             raise ActionException(_NOT_IN_LOBBY)
         if (await self.lobby()).status() != 'started':
@@ -904,8 +921,8 @@ class User:
         await do_request("""
         UPDATE lobby_%s.\"logs\"
         SET stone_id = %s
-        WHERE player_id = %s AND round_number = %s;""" % (
-            self.__current_lobby_id, stone_id, self.__tg_id, (await self.lobby()).round()))
+        WHERE player_id = %s AND round_number = %s AND move_number = %s;""" % (
+            self.__current_lobby_id, stone_id, self.__tg_id, (await self.lobby()).round(), (await self.lobby()).move()))
 
     async def delete(self):
         """
