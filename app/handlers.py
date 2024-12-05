@@ -3,6 +3,8 @@ from aiogram.types import FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.filters import CommandStart
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.date import DateTrigger
 
 import asyncio
 import os
@@ -259,21 +261,9 @@ async def move_loop(
                 text=messages.info_message(),
                 reply_markup=keyboards.field_keyboard(info, lobby.default_stones_cnt, lobby.round())
             )
-    try:
-        start_time = await lobby.last_round_started()
-        tdelta = timedelta(milliseconds=lobby.round_duration_ms)
-        end_time = start_time + tdelta
-        now = datetime.now()
-        if now >= end_time:
-            await lobby.end_move()
-            return True
-        _ = await asyncio.wait_for(queue.get(), timeout=(end_time - now).seconds)
-        logging.debug('I got a signal')
-        await lobby.end_move()
-        return False
-    except asyncio.TimeoutError:
-        await lobby.end_move()
-        return True
+    sig = await queue.get()
+    await lobby.end_move()
+    return sig == 'end'
     
 async def round_loop(
         bot: Bot,
@@ -291,10 +281,22 @@ async def round_loop(
             parse_mode='MarkdownV2',
             reply_markup=keyboards.ingame_keyboard(user.is_admin())
         )
+    scheduler = AsyncIOScheduler()
+    scheduler.start()
+    end_time = datetime.now() + timedelta(minutes=minutes)
+    scheduler.add_job(
+        func=round_ended,
+        trigger=DateTrigger(end_time),
+        args=[queue]
+    )
     is_finished = False
+    is_first_move = True
     while lobby.stones_left() > 0 and not is_finished:
+        if is_first_move:
+            is_first_move = False
+        else:
+            await asyncio.sleep(5)
         is_finished = await move_loop(bot, lobby, queue)
-        await asyncio.sleep(5)
     stones_left = lobby.stones_left()
     for user in users:
         await bot.send_message(
@@ -303,6 +305,11 @@ async def round_loop(
             reply_markup=keyboards.between_rounds_keyboard(user.is_admin())
         )
     await lobby.end_round()
+
+async def round_ended(
+    queue: asyncio.Queue
+) -> None:
+    await queue.put("end")
 
 @router.callback_query((F.data.startswith('pick')))
 async def pick_stone(
@@ -318,7 +325,7 @@ async def pick_stone(
         round = int(round)
         user = await wr.User.add_or_get(call.from_user.id)
         lobby = await user.lobby()
-        if lobby.round() != round:
+        if lobby.round() != round or lobby.status() != 'started':
             await call.answer(messages.inactive_keyboard())
             await call.message.delete()
             return
@@ -336,7 +343,7 @@ async def pick_stone(
         logging.debug(f'{num_finishied}/{num_players} picked a stone')
         if num_finishied == num_players:
             queue = queues[lobby.lobby_id()]
-            await queue.put('move finished')
+            await queue.put('chosen')
             logging.debug('signal is sent')
         await call.answer(messages.choice_is_made())
         await call.message.delete()
