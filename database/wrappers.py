@@ -291,7 +291,9 @@ class Lobby:
             raise ActionException(_DATA_DELETED)
         result = await do_request(
             f"SELECT player_id FROM lobby_{self.__lobby_id}.\"player_list\"")
-        return [await User.add_or_get(user[0]) for user in result]
+        user_list = [await User.add_or_get(user[0]) for user in result]
+        user_list = list(filter(lambda player: player.status() != 'agent', user_list))
+        return user_list
 
     async def players(self):
         user_list = await self.users()
@@ -802,7 +804,7 @@ class User:
         return instance
 
     @classmethod
-    async def add_or_get(cls, tg_id: int):
+    async def add_or_get(cls, tg_id: int, status: str = 'player'):
         """
         Returns User object with given tg_id or creates it in database
         """
@@ -813,8 +815,8 @@ class User:
 
         if len(result) == 0:
             result = await do_request("""
-            INSERT INTO public.\"user\" (tg_id)
-            VALUES (%s) RETURNING *;""" % (tg_id,))
+            INSERT INTO public.\"user\" (tg_id, status)
+            VALUES (%s, %s) RETURNING *;""" % (tg_id, status))
 
         chosen_stone = await do_request("""
         SELECT stone_id FROM lobby_%s.\"logs\" where player_id = %s
@@ -865,7 +867,7 @@ class User:
             raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
         if self.__deleted:
             raise ActionException(_DATA_DELETED)
-        if status not in ['player', 'admin']:
+        if status not in ['player', 'admin', 'agent']:
             raise ActionException(_NO_SUCH_ELEMENT)
         await do_request("""
         UPDATE public.\"user\"
