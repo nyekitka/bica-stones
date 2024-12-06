@@ -1,4 +1,4 @@
-import requests
+import requests_test
 
 HOST = "localhost"
 PORT = "5434"
