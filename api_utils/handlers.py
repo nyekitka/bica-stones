@@ -18,23 +18,31 @@ from app.game import bot, dp
 from database import wrappers as wr
 
 
+
 async def enter_lobby(
     lobby_id: int,
     agent_id: int
 ) -> None:
+    print(1)
     user = await wr.User.add_or_get(agent_id)
+    print(2)
     lobby = await wr.Lobby.get_lobby(lobby_id)
+    print(3)
     try:
+        print(lobby._Lobby__num_players)
         await lobby.join_user(user)
+        print(lobby._Lobby__num_players)
     except AttributeError as ex:
-        raise wr.ActionException(messages.no_such_lobby(lobby_id)) from ex
+        print(4)
+        raise wr.ActionException(messages.no_such_lobby(lobby_id))
     lobby_users = await lobby.users()
     num_players = lobby.number_of_players()
     for other_user in lobby_users:
-        await bot.send_message(
-            chat_id=other_user.id, 
-            text=messages.lobby_entered(num_players, True)
-        )
+        if other_user.id != agent_id:
+            await bot.send_message(
+                chat_id=other_user.id, 
+                text=messages.lobby_entered(num_players, True)
+            )
 
 async def leave_lobby(
     agent_id: int
@@ -48,10 +56,11 @@ async def leave_lobby(
     lobby_users = await lobby.users()
     num_players = lobby.number_of_players()
     for other_user in lobby_users:
-        await bot.send_message(
-            chat_id=other_user.id, 
-            text=messages.left_lobby(num_players, True)
-        )
+        if other_user.id != agent_id:
+            await bot.send_message(
+                chat_id=other_user.id, 
+                text=messages.left_lobby(num_players, True)
+            )
 
 async def pick_stone(
     agent_id: int,
@@ -78,3 +87,10 @@ async def pick_stone(
         queue = queues[lobby.lobby_id()]
         picked[lobby.lobby_id()] = 0
         await queue.put('chosen')
+
+async def get_game_environment(
+    agent_id : int
+) -> dict[int, tuple[int, list[int]]]:
+    user = await wr.User.add_or_get(agent_id)
+    lobby = await user.lobby()
+    return lobby.field_for_user(user)

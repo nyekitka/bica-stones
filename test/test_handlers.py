@@ -25,6 +25,7 @@ class TestMessageHandlers:
         assert ('{' not in msg.incorrect_number())
         assert ('{' not in msg.incorrect_num_stones(1))
         assert ('{' not in msg.incorrect_round_length(1))
+        assert('{' not in msg.no_such_lobby(1))
         assert ('{' not in msg.lobby_created(1))
         assert ('{' not in msg.lobby_entered(1, False))
         assert ('{' not in msg.lobby_entered(1, True))

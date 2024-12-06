@@ -181,6 +181,7 @@ async def start_game(
             await message.answer(messages.starting_not_being_in_lobby(),
                            reply_markup=keyboards.start_keyboard(True))
             return
+        logging.debug(f'num of players - {lobby.number_of_players()}')
         if lobby.number_of_players() < 2:
             await message.answer(messages.not_enough_players_for_start(),
                                  reply_markup=keyboards.inlobby_keyboard(True))
