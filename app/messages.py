@@ -16,6 +16,9 @@ def no_lobbies(isadmin: bool):
     else:
         return Messages['no_lobby_for_user']
 
+def no_such_lobby(lobby_id: int):
+    return Messages['no_such_lobby'].format(lobby_id)
+
 def lobby_is_running():
     return Messages['lobby_is_running']
 

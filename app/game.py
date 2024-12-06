@@ -11,14 +11,15 @@ from app.handlers import router
 from app.middleware import SignalMiddleware
 from database import wrappers as wr
 
+token = os.environ.get("BOT_TOKEN")
+bot = Bot(token=token)
+dp = Dispatcher()
+
 async def main():
     await init_pool()
     async with connection_pool.connection():
         print("Got the connection")
         pass
-    token = os.environ.get("BOT_TOKEN")
-    bot = Bot(token=token)
-    dp = Dispatcher()
     lobby_ids = await wr.Lobby.lobby_ids()
     dp.update.middleware(SignalMiddleware(lobby_ids))
     dp.include_router(router)

@@ -24,3 +24,9 @@ class SignalMiddleware(BaseMiddleware):
             self.__queues[result] = Queue()
             self.__picked[result] = 0
         return result
+
+    def picked(self):
+        return self.__picked
+
+    def queues(self):
+        return self.__queues
