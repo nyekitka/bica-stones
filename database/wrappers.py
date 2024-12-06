@@ -461,7 +461,7 @@ class Lobby:
                                 UPDATE public.\"lobby\"
                                 SET status = 'started', round = %s, current_stones_cnt = %s
                                 WHERE public.\"lobby\".id = %s;
-                                """ % (self.__round + 1, self.__lobby_id, self.__default_stones_cnt))
+                                """ % (self.__round + 1, self.__default_stones_cnt, self.__lobby_id))
                 self.__status = 'started'
                 self.__round += 1
                 self.__move_number = 1
@@ -794,7 +794,6 @@ class User:
     def __new__(cls, user_id: int, tg_id: int, status: str = 'player', current_lobby_id: int = None,
                 chosen_stone: int = None):
         if user_id in cls.__instances:
-            logging.debug(f"User with id {user_id} already exists")
             return cls.__instances[user_id]
 
         logging.debug(f"User {user_id} created")
@@ -907,8 +906,10 @@ class User:
             raise ActionException(_GAME_IS_NOT_RUNNING)
 
         stone_id = await (await self.lobby()).fake_to_real_stone_name(self.__tg_id, stone_id)
-
+        logging.debug(f'real stone id: {stone_id}')
         if stone_id not in (await self.lobby()).stones_set():
+            wtf = (await self.lobby()).stones_set()
+            logging.debug(f'stones_set: {wtf}')
             raise ActionException(_NO_SUCH_STONE)
         self.chosen_stone = stone_id
         await do_request("""

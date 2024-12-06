@@ -249,11 +249,13 @@ async def move_loop(
         lobby: wr.Lobby,
         queue: asyncio.Queue
 ) -> bool:
+    logging.debug('Running new move')
     users = await lobby.users()
     for user in users:
         if not user.is_admin():
             try:
                 info = await lobby.field_for_user(user)
+                logging.debug(f'{user.id} - {info}')
             except wr.ActionException as ex:
                 logging.error(str(ex))
             await bot.send_message(
@@ -261,7 +263,11 @@ async def move_loop(
                 text=messages.info_message(),
                 reply_markup=keyboards.field_keyboard(info, lobby.default_stones_cnt, lobby.round())
             )
+    logging.debug('Starting to wait a signal')
     sig = await queue.get()
+    logging.debug('Sleeping 5 seconds')
+    await asyncio.sleep(5)
+    logging.debug('Ending move')
     await lobby.end_move()
     return sig == 'end'
     
@@ -270,6 +276,7 @@ async def round_loop(
         lobby: wr.Lobby,
         queue: asyncio.Queue
 ) -> None:
+    logging.debug('Starting a new round')
     await lobby.start_round()
     users = await lobby.users()
     minutes = int(lobby.round_duration_ms/60000)
@@ -281,6 +288,7 @@ async def round_loop(
             parse_mode='MarkdownV2',
             reply_markup=keyboards.ingame_keyboard(user.is_admin())
         )
+    logging.debug('Making a scheduler')
     scheduler = AsyncIOScheduler()
     scheduler.start()
     end_time = datetime.now() + timedelta(minutes=minutes)
@@ -290,13 +298,11 @@ async def round_loop(
         args=[queue]
     )
     is_finished = False
-    is_first_move = True
     while lobby.stones_left() > 0 and not is_finished:
-        if is_first_move:
-            is_first_move = False
-        else:
-            await asyncio.sleep(5)
+        logging.debug('Making a new move')
         is_finished = await move_loop(bot, lobby, queue)
+    while not queue.empty():
+        queue.get_nowait()
     stones_left = lobby.stones_left()
     for user in users:
         await bot.send_message(
@@ -309,13 +315,15 @@ async def round_loop(
 async def round_ended(
     queue: asyncio.Queue
 ) -> None:
+    logging.debug('Time is up. Sending a signal')
     await queue.put("end")
 
 @router.callback_query((F.data.startswith('pick')))
 async def pick_stone(
     call: types.CallbackQuery,
     state: FSMContext,
-    queues: list[asyncio.Queue]
+    queues: dict[int, asyncio.Queue],
+    picked: dict[int, int]
 ) -> None:
     _, stone, round = call.data.split(' ')
     if stone == 'empty':
@@ -323,9 +331,14 @@ async def pick_stone(
     else:
         stone = int(stone)
         round = int(round)
+        logging.debug(f"Player {call.from_user.id} chose stone {stone}")
         user = await wr.User.add_or_get(call.from_user.id)
         lobby = await user.lobby()
         if lobby.round() != round or lobby.status() != 'started':
+            if lobby.round() != round:
+                logging.debug(f'User {call.from_user.id} is trying to be naughty and pressed button in a message from past round.')
+            else:
+                logging.debug(f'User {call.from_user.id} is trying to be naughty and pressed button when the game is not started.')
             await call.answer(messages.inactive_keyboard())
             await call.message.delete()
             return
@@ -334,16 +347,17 @@ async def pick_stone(
                 await user.leave_stone()
             else:
                 await user.choose_stone(stone)
+            picked[lobby.lobby_id()] += 1
+            logging.debug(f"Added to counter: {picked[lobby.lobby_id()]}")
         except wr.ActionException as ex:
+            logging.debug(f'While user {call.from_user.id} tried pik stone {stone}, error occured: {ex}')
             await call.answer(str(ex))
             return
-        lobby = await user.lobby()
-        num_finishied = await lobby.num_players_with_chosen_stone()
         num_players = lobby.number_of_players()
-        logging.debug(f'{num_finishied}/{num_players} picked a stone')
-        if num_finishied == num_players:
+        if picked[lobby.lobby_id()] == num_players:
+            logging.debug('Everyone made a choice')
             queue = queues[lobby.lobby_id()]
+            picked[lobby.lobby_id()] = 0
             await queue.put('chosen')
-            logging.debug('signal is sent')
         await call.answer(messages.choice_is_made())
         await call.message.delete()

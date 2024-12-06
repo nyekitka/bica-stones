@@ -13,7 +13,7 @@ if __name__ == '__main__':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     init_exceptions()
     load_dotenv()
-    logging.basicConfig(level=os.getenv('LOG_LEVEL'))
+    logging.basicConfig(level='DEBUG')
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
