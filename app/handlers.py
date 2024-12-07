@@ -85,10 +85,11 @@ async def enter_chosen_lobby(
         lobby_users = await lobby.users()
         num_players = lobby.number_of_players()
         for other_user in lobby_users:
-            await call.bot.send_message(
-                chat_id=other_user.id, 
-                text=messages.lobby_entered(num_players, True)
-            )
+            if other_user.status() != 'agent':
+                await call.bot.send_message(
+                    chat_id=other_user.id, 
+                    text=messages.lobby_entered(num_players, True)
+                )
         
 @router.message((F.text == 'Создать лобби'))
 async def create_lobby(
@@ -163,10 +164,11 @@ async def leave_lobby(
         lobby_users = await lobby.users()
         num_players = lobby.number_of_players()
         for other_user in lobby_users:
-            await message.bot.send_message(
-                chat_id=other_user.id, 
-                text=messages.left_lobby(num_players, True)
-            )
+            if other_user.status() != 'agent':
+                await message.bot.send_message(
+                    chat_id=other_user.id, 
+                    text=messages.left_lobby(num_players, True)
+                )
 
 @router.message((F.text == 'Начать игру'))
 async def start_game(
@@ -253,7 +255,7 @@ async def move_loop(
     logging.debug('Running new move')
     users = await lobby.users()
     for user in users:
-        if not user.is_admin():
+        if not user.is_admin() and user.status() != 'agent':
             try:
                 info = await lobby.field_for_user(user)
                 logging.debug(f'{user.id} - {info}')
@@ -283,12 +285,13 @@ async def round_loop(
     minutes = int(lobby.round_duration_ms/60000)
     round = lobby.round()
     for user in users:
-        await bot.send_message(
-            chat_id = user.id,
-            text = messages.round_started(round, minutes, user.is_admin()),
-            parse_mode='MarkdownV2',
-            reply_markup=keyboards.ingame_keyboard(user.is_admin())
-        )
+        if user.status() != 'agent':
+            await bot.send_message(
+                chat_id = user.id,
+                text = messages.round_started(round, minutes, user.is_admin()),
+                parse_mode='MarkdownV2',
+                reply_markup=keyboards.ingame_keyboard(user.is_admin())
+            )
     logging.debug('Making a scheduler')
     scheduler = AsyncIOScheduler()
     scheduler.start()
@@ -306,11 +309,12 @@ async def round_loop(
         queue.get_nowait()
     stones_left = lobby.stones_left()
     for user in users:
-        await bot.send_message(
-            chat_id=user.id,
-            text=messages.round_ended(lobby.round(), stones_left, user.is_admin()),
-            reply_markup=keyboards.between_rounds_keyboard(user.is_admin())
-        )
+        if user.status() != 'agent':
+            await bot.send_message(
+                chat_id=user.id,
+                text=messages.round_ended(lobby.round(), stones_left, user.is_admin()),
+                reply_markup=keyboards.between_rounds_keyboard(user.is_admin())
+            )
     await lobby.end_round()
 
 async def round_ended(
