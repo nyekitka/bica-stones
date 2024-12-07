@@ -857,6 +857,13 @@ class User:
             raise ActionException(_DATA_DELETED)
         return self.__status == 'admin'
 
+    def status(self):
+        if hasattr(self, '__database_consistent'):
+            raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
+        if self.__deleted:
+            raise ActionException(_DATA_DELETED)
+        return self.__status
+
     async def set_status(self, status: str):
         """
         Sets status of user
