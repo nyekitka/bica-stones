@@ -292,7 +292,6 @@ class Lobby:
         result = await do_request(
             f"SELECT player_id FROM lobby_{self.__lobby_id}.\"player_list\"")
         user_list = [await User.add_or_get(user[0]) for user in result]
-        user_list = list(filter(lambda player: player.status() != 'agent', user_list))
         return user_list
 
     async def players(self):

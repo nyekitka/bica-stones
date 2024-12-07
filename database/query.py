@@ -42,6 +42,10 @@ async def do_request(request: str) -> Optional[list]:
             logging.error(e)
             await conn.rollback()
             raise e
+        except psycopg.Error as e:
+            logging.error(e)
+            await conn.rollback()
+            raise e
         except Exception as e:
             logging.error(e)
             await conn.rollback()
