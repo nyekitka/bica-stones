@@ -291,8 +291,7 @@ class Lobby:
             raise ActionException(_DATA_DELETED)
         result = await do_request(
             f"SELECT player_id FROM lobby_{self.__lobby_id}.\"player_list\"")
-        user_list = [await User.add_or_get(user[0]) for user in result]
-        return user_list
+        return [await User.add_or_get(user[0]) for user in result]
 
     async def players(self):
         user_list = await self.users()
@@ -857,6 +856,13 @@ class User:
         if self.__deleted:
             raise ActionException(_DATA_DELETED)
         return self.__status == 'admin'
+
+    def status(self):
+        if hasattr(self, '__database_consistent'):
+            raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
+        if self.__deleted:
+            raise ActionException(_DATA_DELETED)
+        return self.__status
 
     async def set_status(self, status: str):
         """

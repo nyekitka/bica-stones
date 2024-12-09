@@ -117,3 +117,6 @@ def choice_is_made():
 
 def inactive_keyboard():
     return Messages['inactive_keyboard']
+
+def game_is_already_finished():
+    return Messages['game_is_already_finished']

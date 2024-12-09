@@ -68,6 +68,20 @@ async def leave_lobby(
         "message": "Agent left lobby"
     }
 
+@app.get("/game/get_game_info/")
+async def get_game_info(agent_id: int):
+    try:
+        return {
+            "message": await hnd.get_game_environment(agent_id)
+        }
+    except ActionException as ex:
+        return {
+            "message": str(ex)
+        }
+    except Exception as ex:
+        return {
+            "message": str(ex)
+        }
 
 @app.post("/game/pick_stone/")
 async def pick_stone(
