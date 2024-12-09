@@ -23,17 +23,11 @@ async def enter_lobby(
     lobby_id: int,
     agent_id: int
 ) -> None:
-    print(1)
-    user = await wr.User.add_or_get(agent_id)
-    print(2)
+    user = await wr.User.add_or_get(agent_id, 'agent')
     lobby = await wr.Lobby.get_lobby(lobby_id)
-    print(3)
     try:
-        print(lobby._Lobby__num_players)
         await lobby.join_user(user)
-        print(lobby._Lobby__num_players)
     except AttributeError as ex:
-        print(4)
         raise wr.ActionException(messages.no_such_lobby(lobby_id))
     lobby_users = await lobby.users()
     num_players = lobby.number_of_players()
@@ -47,7 +41,7 @@ async def enter_lobby(
 async def leave_lobby(
     agent_id: int
 ) -> None:
-    user = await wr.User.add_or_get(agent_id)
+    user = await wr.User.add_or_get(agent_id, 'agent')
     lobby = await user.lobby()
     try:
         await lobby.kick_user(user)
@@ -67,7 +61,7 @@ async def pick_stone(
     stone: int
 ) -> None:
     logging.debug(f"Player {agent_id} chose stone {stone}")
-    user = await wr.User.add_or_get(agent_id)
+    user = await wr.User.add_or_get(agent_id, 'agent')
     lobby = await user.lobby()
     picked = dp.update.middleware._middlewares[0].picked()
     queues = dp.update.middleware._middlewares[0].queues()
@@ -91,6 +85,43 @@ async def pick_stone(
 async def get_game_environment(
     agent_id : int
 ) -> dict[int, tuple[int, list[int]]]:
-    user = await wr.User.add_or_get(agent_id)
+    user = await wr.User.add_or_get(agent_id, 'agent')
     lobby = await user.lobby()
-    return lobby.field_for_user(user)
+    return await lobby.field_for_user(user)
+
+async def wait_until_start_round(
+    agent_id : int,
+    timeout : int = 600
+) -> bool:
+    user = await wr.User.add_or_get(agent_id, 'agent')
+    lobby = await user.lobby()
+    for _ in range(timeout):
+        if lobby.status() == 'started':
+            return True
+        else:
+            asyncio.sleep(1)
+    return False
+
+async def wait_until_start_move(
+    agent_id : int,
+    timeout : int = 600
+) -> bool:
+    user = await wr.User.add_or_get(agent_id, 'agent')
+    lobby : wr.Lobby = user.lobby()
+    if lobby.status() == 'created' or lobby.status() == 'waiting':
+        return await wait_until_start_round(agent_id, timeout)
+    elif lobby.status() == 'finished':
+        raise wr.ActionException(messages.game_is_already_finished())
+    else:
+        picked = dp.update.middleware._middlewares[0].picked()
+        while timeout > 0 and picked != lobby.number_of_players():
+            picked = dp.update.middleware._middlewares[0].picked()
+            asyncio.sleep(1)
+            timeout -= 1
+        if timeout == 0:
+            return False
+        while timeout > 0 and picked < lobby.number_of_players():
+            picked = dp.update.middleware._middlewares[0].picked()
+            asyncio.sleep(1)
+            timeout -= 1
+        return timeout != 0
