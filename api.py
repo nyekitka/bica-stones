@@ -17,12 +17,16 @@ async def startup():
 
 @app.get("/get_lobby_ids/")
 async def get_lobby_ids():
-    try:
-        return await Lobby.lobby_ids()
-    except ActionException as ex:
-        return {"message":
-                str(ex)
-            }
+    # try:
+    return await Lobby.lobby_ids()
+    # except ActionException as ex:
+    #     return {"message":
+    #             str(ex)
+    #         }
+    # except Exception as ex:
+    #     return {"message":
+    #             str(ex)
+    #         }
 
 @app.get("/game/get_env_info/")
 async def get_env_info(

@@ -1,7 +1,7 @@
-import requests_test
+import requests
 
 HOST = "localhost"
-PORT = "5434"
+PORT = "5000"
 SRC = HOST + ":" + PORT
 AGENT_ID = -123456
 
