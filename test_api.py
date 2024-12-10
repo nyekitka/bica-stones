@@ -44,6 +44,22 @@ def game_info():
         url = f"http://{SRC}/game/get_game_info/", params = params
     )
     print(resp.json())
+    
+def wait_round_start():
+    agent_id = AGENT_ID
+    params = {"agent_id": agent_id}
+    resp = requests.get(
+        url = f"http://{SRC}/game/wait_round_start/", params = params
+    )
+    print(resp.json())
+    
+def wait_start_move():
+    agent_id = AGENT_ID
+    params = {"agent_id": agent_id}
+    resp = requests.get(
+        url = f"http://{SRC}/game/wait_start_move/", params = params
+    )
+    print(resp.json())
   
     
 OPTIONS = {
@@ -51,7 +67,9 @@ OPTIONS = {
     2: "Enter lobby",
     3: "leave lobby",
     4: "pick stone",
-    5: "get game info"
+    5: "get game info",
+    6: "wait round start",
+    7: "wait start move"
 }
     
 def menu():
@@ -74,6 +92,12 @@ def main():
             pick_stone()
         elif opt == 5:
             game_info()
+        elif opt == 6:
+            wait_round_start()
+        elif opt == 7:
+            wait_start_move()
         else:
             pass
+        
+        
 main()
