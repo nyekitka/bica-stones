@@ -22,11 +22,24 @@ async def startup():
 async def get_lobby_ids():
     logging.info('get request')
     try:
-        return await Lobby.lobby_ids()
+        result =  await Lobby.lobby_ids()
+        return {
+            "status": "success",
+            "code": 200,
+            "result": result
+        }
+    except ActionException as ex:
+        return {
+            "status": "error",
+            "code": 400,
+            "message": str(ex)
+        }
     except Exception as ex:
-        return {"message":
-                    _UNKNOWN_ERROR
-                }
+        return {
+            "status": "error",
+            "code": 500,
+            "message": _UNKNOWN_ERROR
+        }
 
 
 @app.post("/enter_lobby/")
@@ -37,17 +50,23 @@ async def enter_lobby(
     logging.info('get request')
     try:
         await hnd.enter_lobby(lobby_id, agent_id)
+        return {
+            "status": "success",
+            "code": 200,
+            "message": "Agent entered lobby"
+        }
     except ActionException as ex:
         return {
+            "status": "error",
+            "code": 400,
             "message": str(ex)
         }
     except Exception as ex:
         return {
+            "status": "error",
+            "code": 500,
             "message": _UNKNOWN_ERROR
         }
-    return {
-        "message": "Agent entered lobby"
-    }
 
 
 @app.post("/game/leave_lobby/")
@@ -58,13 +77,19 @@ async def leave_lobby(
         await hnd.leave_lobby(agent_id)
     except ActionException as ex:
         return {
+            "status": "error",
+            "code": 400,
             "message": str(ex)
         }
     except Exception as ex:
         return {
+            "status": "error",
+            "code": 500,
             "message": _UNKNOWN_ERROR
         }
     return {
+        "status": "success",
+        "code": 200,
         "message": "Agent left lobby"
     }
 
@@ -72,14 +97,20 @@ async def leave_lobby(
 async def get_game_info(agent_id: int):
     try:
         return {
+            "status": "success",
+            "code": 200,
             "message": await hnd.get_game_environment(agent_id)
         }
     except ActionException as ex:
         return {
+            "status": "error",
+            "code": 400,
             "message": str(ex)
         }
     except Exception as ex:
         return {
+            "status": "error",
+            "code": 500,
             "message": str(ex)
         }
 
@@ -92,12 +123,64 @@ async def pick_stone(
         await hnd.pick_stone(agent_id, stone)
     except ActionException as ex:
         return {
+            "status": "error",
+            "code": 400,
             "message": str(ex)
         }
     except Exception as ex:
         return {
+            "status": "error",
+            "code": 500,
             "message": _UNKNOWN_ERROR
         }
     return {
+        "status": "success",
+        "code": 200,
         "message": "Agent picked a stone"
     }
+    
+    
+@app.get("/game/wait_round_start/")
+async def wait_round_start(agent_id: int):
+    try:
+        await hnd.wait_until_start_round(agent_id=agent_id)
+        return {
+            "status": "success",
+            "code": 200,
+            "message": "Round has been started"
+        }
+    except ActionException as ex:
+       return {
+           "status": "error",
+           "code": 400,
+           "message": str(ex)
+       }
+    except Exception as ex:
+        return {
+            "status": "error",
+            "code": 500,
+            "message": _UNKNOWN_ERROR
+        }
+        
+        
+@app.get("/game/wait_start_move/")
+async def wait_start_move(agent_id: int):
+    try:
+        await hnd.wait_until_start_move(agent_id=agent_id)
+        return {
+            "status": "success",
+            "code": 200,
+            "message": "Move has been started"
+        }
+    except ActionException as ex:
+       return {
+           "status": "error",
+           "code": 400,
+           "message": str(ex)
+       }
+    except Exception as ex:
+        return {
+            "status": "error",
+            "code": 500,
+            "message": _UNKNOWN_ERROR
+        }
