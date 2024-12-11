@@ -13,7 +13,10 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict
 from random import randint
 
-from . import keyboards, messages
+from . import (
+    keyboards, messages,
+    utils, loops
+)
 from database import wrappers as wr
 
 class StoneState(StatesGroup):
@@ -25,8 +28,7 @@ router = Router()
 
 @router.message(CommandStart())
 async def start(
-    message: types.Message,
-    state: FSMContext
+    message: types.Message
 ) -> None:
     user = await wr.User.add_or_get(message.from_user.id)
     lobby = await user.lobby()
@@ -56,8 +58,7 @@ async def enter_lobby(
 
 @router.callback_query(F.data.startswith('enter'))
 async def enter_chosen_lobby(
-    call: types.CallbackQuery,
-    state: FSMContext
+    call: types.CallbackQuery
 ) -> None:
     lobby_id = int(call.data.split()[1])
     user = await wr.User.add_or_get(call.from_user.id)
@@ -82,14 +83,14 @@ async def enter_chosen_lobby(
         )
         await call.message.delete()
     if not is_admin:
-        lobby_users = await lobby.users()
         num_players = lobby.number_of_players()
-        for other_user in lobby_users:
-            if other_user.status() != 'agent':
-                await call.bot.send_message(
-                    chat_id=other_user.id, 
-                    text=messages.lobby_entered(num_players, True)
-                )
+        text = messages.lobby_entered(num_players, True)
+        await utils.send_message_to_all_users(
+            bot=call.bot,
+            lobby=lobby,
+            message=text,
+            roles=['player', 'admin']
+        )
         
 @router.message((F.text == 'Создать лобби'))
 async def create_lobby(
@@ -143,8 +144,7 @@ async def choose_num_of_stones(
 
 @router.message((F.text == "Выйти из лобби"))
 async def leave_lobby(
-    message: types.Message,
-    state: FSMContext
+    message: types.Message
 ) -> None:
     user = await wr.User.add_or_get(message.from_user.id)
     lobby = await user.lobby()
@@ -161,19 +161,18 @@ async def leave_lobby(
     await message.answer(messages.left_lobby(lobby.lobby_id(), False),
                    reply_markup=keyboards.start_keyboard(is_admin))
     if not is_admin:
-        lobby_users = await lobby.users()
         num_players = lobby.number_of_players()
-        for other_user in lobby_users:
-            if other_user.status() != 'agent':
-                await message.bot.send_message(
-                    chat_id=other_user.id, 
-                    text=messages.left_lobby(num_players, True)
-                )
+        text = messages.left_lobby(num_players, True)
+        await utils.send_message_to_all_users(
+            bot=message.bot,
+            lobby=lobby,
+            message=text,
+            roles=['player', 'admin']
+        )
 
 @router.message((F.text == 'Начать игру'))
 async def start_game(
     message: types.Message,
-    state: FSMContext,
     queues: Dict[int, asyncio.Queue]
 ) -> None:
     user = await wr.User.add_or_get(message.from_user.id)
@@ -190,7 +189,11 @@ async def start_game(
             return
         try:
             await lobby.start_game()
-            await round_loop(message.bot, lobby, queues[lobby.lobby_id()])
+            await loops.round_loop(
+                bot=message.bot,
+                lobby=lobby,
+                queue=queues[lobby.lobby_id()]
+            )
         except wr.ActionException as ex:
             await message.answer(str(ex))
             return
@@ -198,7 +201,6 @@ async def start_game(
 @router.message((F.text == 'Запустить новый раунд'))
 async def start_new_round(
     message: types.Message,
-    state: FSMContext,
     queues: Dict[int, asyncio.Queue]
 ) -> None:
     user = await wr.User.add_or_get(message.from_user.id)
@@ -209,124 +211,45 @@ async def start_new_round(
                            reply_markup=keyboards.start_keyboard(True))
             return
         try:
-            await round_loop(message.bot, lobby, queues[lobby.lobby_id()])
+            await loops.round_loop(message.bot, lobby, queues[lobby.lobby_id()])
         except wr.ActionException as ex:
             await message.answer(str(ex))
             return
 
 @router.message((F.text == 'Закончить игру'))
 async def end_game(
-    message: types.Message,
-    state: FSMContext
+    message: types.Message
 ) -> None:
     user = await wr.User.add_or_get(message.from_user.id)
     if user.is_admin():
         lobby = await user.lobby()
         users = await lobby.users()
-        bot = message.bot
-        for other_user in users:
-            if other_user.is_admin():
-                logs_path = await lobby.get_logs()
-                await bot.send_document(
-                    caption=messages.game_over(True),
-                    chat_id=other_user.id,
-                    document=FSInputFile(logs_path, f'Логи игры {lobby.lobby_id()}.csv'),
-                    reply_markup=keyboards.start_keyboard(True),
-                    parse_mode='MarkdownV2'
-                )
-                os.remove(logs_path)
-            elif other_user.status() != 'agent':
-                await bot.send_message(
-                    chat_id=other_user.id,
-                    text=messages.game_over(False),
-                    parse_mode='MarkdownV2',
-                    reply_markup=keyboards.start_keyboard(False)
-                )
+        logs_path = await lobby.get_logs()
+        await utils.send_document_to_all_users(
+            bot=message.bot,
+            caption=messages.game_over(True),
+            lobby=lobby,
+            document=FSInputFile(logs_path, f'Логи игры {lobby.lobby_id()}.csv'),
+            reply_markup=keyboards.start_keyboard(True),
+            parse_mode='MarkdownV2',
+            roles=['admin']
+        )
+        os.remove(logs_path)
+        await utils.send_message_to_all_users(
+            bot=message.bot,
+            lobby=lobby,
+            message=messages.game_over(False),
+            parse_mode='MarkdownV2',
+            reply_markup=keyboards.start_keyboard(False)
+        )
         try:
             await lobby.end_game()
         except wr.ActionException as ex:
             await message.answer(str(ex))
 
-async def move_loop(
-    bot: Bot, 
-    lobby: wr.Lobby,
-    queue: asyncio.Queue
-) -> bool:
-    logging.debug('Running new move')
-    users = await lobby.users()
-    for user in users:
-        if not user.is_admin() and user.status() != 'agent':
-            try:
-                info = await lobby.field_for_user(user)
-                logging.debug(f'{user.id} - {info}')
-            except wr.ActionException as ex:
-                logging.error(str(ex))
-            await bot.send_message(
-                chat_id=user.id,
-                text=messages.info_message(),
-                reply_markup=keyboards.field_keyboard(info, lobby.default_stones_cnt, lobby.round())
-            )
-    logging.debug('Starting to wait a signal')
-    sig = await queue.get()
-    logging.debug('Sleeping 5 seconds')
-    await asyncio.sleep(5)
-    logging.debug('Ending move')
-    await lobby.end_move()
-    return sig == 'end'
-    
-async def round_loop(
-        bot: Bot,
-        lobby: wr.Lobby,
-        queue: asyncio.Queue
-) -> None:
-    logging.debug('Starting a new round')
-    await lobby.start_round()
-    users = await lobby.users()
-    minutes = int(lobby.round_duration_ms/60000)
-    round = lobby.round()
-    for user in users:
-        if user.status() != 'agent':
-            await bot.send_message(
-                chat_id = user.id,
-                text = messages.round_started(round, minutes, user.is_admin()),
-                parse_mode='MarkdownV2',
-                reply_markup=keyboards.ingame_keyboard(user.is_admin())
-            )
-    logging.debug('Making a scheduler')
-    scheduler = AsyncIOScheduler()
-    scheduler.start()
-    end_time = datetime.now() + timedelta(minutes=minutes)
-    scheduler.add_job(
-        func=round_ended,
-        trigger=DateTrigger(end_time),
-        args=[queue]
-    )
-    is_finished = False
-    while lobby.stones_left() > 0 and not is_finished:
-        logging.debug('Making a new move')
-        is_finished = await move_loop(bot, lobby, queue)
-    while not queue.empty():
-        queue.get_nowait()
-    stones_left = lobby.stones_left()
-    for user in users:
-        if user.status() != 'agent':
-            await bot.send_message(
-                chat_id=user.id,
-                text=messages.round_ended(lobby.round(), stones_left, user.is_admin()),
-                reply_markup=keyboards.between_rounds_keyboard(user.is_admin())
-            )
-    await lobby.end_round()
-
-async def round_ended(
-    queue: asyncio.Queue
-) -> None:
-    logging.debug('Time is up. Sending a signal')
-    await queue.put("end")
-
 @router.callback_query((F.data.startswith('pick')))
 async def pick_stone(
     call: types.CallbackQuery,
-    state: FSMContext,
     queues: dict[int, asyncio.Queue],
     picked: dict[int, int]
 ) -> None:
@@ -340,10 +263,6 @@ async def pick_stone(
         user = await wr.User.add_or_get(call.from_user.id)
         lobby = await user.lobby()
         if lobby.round() != round or lobby.status() != 'started':
-            if lobby.round() != round:
-                logging.debug(f'User {call.from_user.id} is trying to be naughty and pressed button in a message from past round.')
-            else:
-                logging.debug(f'User {call.from_user.id} is trying to be naughty and pressed button when the game is not started.')
             await call.answer(messages.inactive_keyboard())
             await call.message.delete()
             return
@@ -355,7 +274,7 @@ async def pick_stone(
             picked[lobby.lobby_id()] += 1
             logging.debug(f"Added to counter: {picked[lobby.lobby_id()]}")
         except wr.ActionException as ex:
-            logging.debug(f'While user {call.from_user.id} tried pik stone {stone}, error occured: {ex}')
+            logging.debug(f'While user {call.from_user.id} tried pick stone {stone}, error occured: {ex}')
             await call.answer(str(ex))
             return
         num_players = lobby.number_of_players()
@@ -366,3 +285,73 @@ async def pick_stone(
             await queue.put('chosen')
         await call.answer(messages.choice_is_made())
         await call.message.delete()
+
+@router.message(Command("request"))
+async def request_admin(
+    message: types.Message
+) -> None:
+    user = await wr.User.add_or_get(message.from_user.id)
+    if user.is_admin():
+        await message.answer(
+            text=messages.invalid_request()
+        )
+    else:
+        supreme_id = wr.User.SUPREME_ADMIN_ID
+        await message.bot.send_message(
+            chat_id=supreme_id,
+            text=messages.request_for_admin(message.from_user),
+            parse_mode='MarkdownV2',
+            reply_markup=keyboards.request_keyboard(message.from_user.id)
+        )
+        await message.answer(
+            text=messages.wait_for_acception()
+        )
+
+@router.callback_query((F.data.startswith('accept')))
+async def accept_request(
+    call : types.CallbackQuery
+) -> None:
+    _, id = call.data.split()
+    id = int(id)
+    user = await wr.User.add_or_get(id, 'player')
+    lobby = await user.lobby()
+    if lobby is not None and lobby.status() == 'started':
+        await call.answer(
+            text=messages.wait_til_player_leave(),
+            show_alert=True
+        )
+        return
+    elif lobby is not None:
+        await lobby.kick_user(user)
+        num_of_players = lobby.number_of_players()
+        await utils.send_message_to_all_users(
+            bot=call.bot,
+            lobby=lobby,
+            message=messages.left_lobby(num_of_players, True),
+            roles=['player', 'admin']
+        )
+        await call.bot.send_message(
+            chat_id=id,
+            text=messages.left_lobby(num_of_players, False)
+        )
+    await call.answer()
+    await call.message.delete()
+    await wr.User.set_status(user, 'admin')
+    await call.bot.send_message(
+        text=messages.request_accepted(),
+        chat_id=id,
+        reply_markup=keyboards.start_keyboard(True)
+    )
+
+@router.callback_query((F.data.startswith('deny')))
+async def deny_request(
+    call: types.CallbackQuery
+) -> None:
+    await call.answer()
+    await call.message.delete()
+    _, id = call.data.split()
+    id = int(id)
+    await call.bot.send_message(
+        chat_id=id,
+        text=messages.request_denied()
+    )

@@ -71,3 +71,11 @@ def between_rounds_keyboard(isadmin: bool) -> ReplyKeyboardMarkup | ReplyKeyboar
         )
     else:
         return ReplyKeyboardRemove()
+
+def request_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[
+         InlineKeyboardButton(text='Принять', callback_data=f'accept {user_id}'),
+         InlineKeyboardButton(text='Отклонить', callback_data=f'deny {user_id}')
+        ]]
+    )
