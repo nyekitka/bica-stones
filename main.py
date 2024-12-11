@@ -5,6 +5,8 @@ import sys
 
 from dotenv import load_dotenv
 
+from database.query import init_pool, connection_pool
+from database.wrappers import User
 from app.game import main
 from data.exception import init_exceptions
 import uvicorn
@@ -18,7 +20,20 @@ async def start_server():
     await server.serve()
 
 
-async def main2():
+async def entrypoint():
+    await init_pool()
+    async with connection_pool.connection():
+        logging.info("Got the connection to DB")
+        pass
+    admin_list = os.getenv('ADMIN_LIST')
+    if admin_list:
+        for tg_id in admin_list.split(','):
+            try:
+                user = await User.add_or_get(int(tg_id), 'admin')
+                if user.status() != 'admin':
+                    await user.set_status('admin')
+            except ValueError:
+                logging.error('one or more tg_ids in ADMIN_LIST has incorrect format')
     await asyncio.gather(main(), start_server())
 
 
@@ -31,6 +46,6 @@ if __name__ == '__main__':
     logging.info('checked')
 
     try:
-        asyncio.run(main2())
+        asyncio.run(entrypoint())
     except KeyboardInterrupt:
         print('Pressed Ctrl+C. Interrupting...')

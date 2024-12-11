@@ -13,7 +13,7 @@ from psycopg import DatabaseError
 
 from data.exception import ActionException, _NO_SUCH_ELEMENT, _DATA_DELETED, _NOT_SYNCHRONIZED_WITH_DATABASE, \
     _GAME_IS_RUNNING, _ALREADY_IN_LOBBY, _NOT_IN_LOBBY, _GAME_IS_NOT_RUNNING, _ALREADY_CHOSEN_STONE, init_exceptions, \
-    _NO_SUCH_STONE, _MAX_POSSIBLE_PLAYERS
+    _NO_SUCH_STONE, _MAX_POSSIBLE_PLAYERS, _LOBBY_FINISHED
 from database.query import connection_pool, do_request
 
 
@@ -248,6 +248,8 @@ class Lobby:
             raise ActionException(_NOT_SYNCHRONIZED_WITH_DATABASE)
         if self.__deleted:
             raise ActionException(_DATA_DELETED)
+        if self.__status == 'finished':
+            raise ActionException(_LOBBY_FINISHED)
         if not (self.__status == 'created' or (user.is_admin() and self.__status != 'finished')):
             raise ActionException(_GAME_IS_RUNNING)
         if await user.lobby():
@@ -676,7 +678,6 @@ class Lobby:
     async def player_naming(self) -> dict[int, str]:
         """
         Returns fake namings for players like user_id see them.
-        :param user_id:
         :return:
         """
         if hasattr(self, '__database_consistent'):
@@ -814,7 +815,7 @@ class User:
         if len(result) == 0:
             result = await do_request("""
             INSERT INTO public.\"user\" (tg_id, status)
-            VALUES (%s, %s) RETURNING *;""" % (tg_id, status))
+            VALUES (%s, '%s') RETURNING *;""" % (tg_id, status))
 
         chosen_stone = await do_request("""
         SELECT stone_id FROM lobby_%s.\"logs\" where player_id = %s

@@ -4,7 +4,7 @@
 .vscode
 .pytest_cache
 *__pycache__
-.bica_tempdata/
+bica_tempdata
 app/__pycache__
 data/__pycache__
 database/__pycache__

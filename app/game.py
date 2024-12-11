@@ -16,10 +16,6 @@ bot = Bot(token=token)
 dp = Dispatcher()
 
 async def main():
-    await init_pool()
-    async with connection_pool.connection():
-        print("Got the connection")
-        pass
     lobby_ids = await wr.Lobby.lobby_ids()
     dp.update.middleware(SignalMiddleware(lobby_ids))
     dp.include_router(router)
