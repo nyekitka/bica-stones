@@ -1,13 +1,15 @@
 {
-  "_UNKNOWN_ERROR": "Неизвестная ошибка",
-  "_NO_SUCH_ELEMENT": "Элемент не найден",
-  "_NOT_IN_LOBBY": "Игрок не в лобби",
-  "_NO_SUCH_STONE": "Такого камня нет на поле",
-  "_ALREADY_CHOSEN_STONE": "Камень уже выбран",
-  "_GAME_IS_NOT_RUNNING": "Игра не запущена",
-  "_DATA_DELETED": "Данные удалены и больше не существуют",
-  "_ALREADY_IN_LOBBY": "Пользователь уже в лобби",
-  "_NOT_SYNCHRONIZED_WITH_DATABASE": "Данные не синхронизированы с базой данных",
-  "_GAME_IS_RUNNING": "Игра уже запущена",
-  "_MAX_POSSIBLE_PLAYERS": "Достигнуто максимальное количество игроков."
+  "_UNKNOWN_ERROR":                   "Неизвестная ошибка",
+  "_NO_SUCH_ELEMENT":                 "Элемент не найден",
+  "_NOT_IN_LOBBY":                    "Игрок не в лобби",
+  "_NO_SUCH_STONE":                   "Такого камня нет на поле",
+  "_ALREADY_CHOSEN_STONE":            "Камень уже выбран",
+  "_GAME_IS_NOT_RUNNING":             "Игра не запущена",
+  "_DATA_DELETED":                    "Данные удалены и больше не существуют",
+  "_ALREADY_IN_LOBBY":                "Пользователь уже в лобби",
+  "_NOT_SYNCHRONIZED_WITH_DATABASE":  "Данные не синхронизированы с базой данных",
+  "_GAME_IS_RUNNING":                 "Игра уже запущена",
+  "_MAX_POSSIBLE_PLAYERS":            "Достигнуто максимальное количество игроков.",
+  "_ACTION_OUT_OF_LOBBY":             "Вы не можете совершить данное действие, поскольку вы не находитесь в лобби",
+  "_NO_SUCH_LOBBY":                   "Такого лобби нет"
 }

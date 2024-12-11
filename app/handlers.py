@@ -2,7 +2,7 @@ from aiogram import types, F, Router, Bot
 from aiogram.types import FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.date import DateTrigger
 

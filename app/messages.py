@@ -120,3 +120,6 @@ def inactive_keyboard():
 
 def game_is_already_finished():
     return Messages['game_is_already_finished']
+
+def action_out_of_lobby():
+    return Messages['action_out_of_lobby']

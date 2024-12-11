@@ -13,7 +13,7 @@ def get_lobby_ids():
 
 def enter_lobby():
     agent_id = AGENT_ID
-    lobby_id = int(input("Enter lobby id:"))
+    lobby_id = int(input("Enter lobby id: "))
     params = {"lobby_id": lobby_id, "agent_id": agent_id}
     resp = requests.post(
         url = f"http://{SRC}/enter_lobby/", params=params
@@ -30,7 +30,7 @@ def leave_lobby():
     
 def pick_stone():
     agent_id = AGENT_ID
-    stone = int(input("Enter stone"))
+    stone = int(input("Enter stone: "))
     params = {"agent_id": agent_id, "stone": stone}
     resp = requests.post(
         url = f"http://{SRC}/game/pick_stone/", params = params
@@ -53,23 +53,13 @@ def wait_round_start():
     )
     print(resp.json())
     
-def wait_start_move():
-    agent_id = AGENT_ID
-    params = {"agent_id": agent_id}
-    resp = requests.get(
-        url = f"http://{SRC}/game/wait_start_move/", params = params
-    )
-    print(resp.json())
-  
-    
 OPTIONS = {
     1: "Get lobby ids",
     2: "Enter lobby",
     3: "leave lobby",
     4: "pick stone",
     5: "get game info",
-    6: "wait round start",
-    7: "wait start move"
+    6: "wait round start"
 }
     
 def menu():
@@ -94,8 +84,6 @@ def main():
             game_info()
         elif opt == 6:
             wait_round_start()
-        elif opt == 7:
-            wait_start_move()
         else:
             pass
         
