@@ -783,6 +783,8 @@ class User:
 
     __instances: dict[int, 'User'] = {}
 
+    SUPREME_ADMIN_ID = None
+
     def __init__(self, user_id: int, tg_id: int, status: str = 'player', current_lobby_id: int = None,
                  chosen_stone: int = None):
         self.__user_id = user_id
