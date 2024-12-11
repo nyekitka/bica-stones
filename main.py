@@ -16,7 +16,6 @@ from api_utils.api import app
 async def start_server():
     config = uvicorn.Config(app, host="0.0.0.0", port=5000)
     server = uvicorn.Server(config)
-    logging.info('CHECK')
     await server.serve()
 
 
@@ -25,15 +24,15 @@ async def entrypoint():
     async with connection_pool.connection():
         logging.info("Got the connection to DB")
         pass
-    admin_list = os.getenv('ADMIN_LIST')
-    if admin_list:
-        for tg_id in admin_list.split(','):
-            try:
-                user = await User.add_or_get(int(tg_id), 'admin')
-                if user.status() != 'admin':
-                    await user.set_status('admin')
-            except ValueError:
-                logging.error('one or more tg_ids in ADMIN_LIST has incorrect format')
+    supreme_admin_id = os.getenv('SUPREME_ADMIN_ID')
+    if supreme_admin_id:
+        try:
+            user = await User.add_or_get(int(supreme_admin_id), 'admin')
+            if user.status() != 'admin':
+                await user.set_status('admin')
+            User.SUPREME_ADMIN_ID = supreme_admin_id
+        except ValueError:
+            logging.error('tg_id of supreme_admin has incorrect format')
     await asyncio.gather(main(), start_server())
 
 
@@ -43,7 +42,6 @@ if __name__ == '__main__':
     init_exceptions()
     load_dotenv()
     logging.basicConfig(level='DEBUG')
-    logging.info('checked')
 
     try:
         asyncio.run(entrypoint())

@@ -781,6 +781,7 @@ class User:
     Class-wrapper of SQL relation "User"
     """
 
+    SUPREME_ADMIN_ID = None
     __instances: dict[int, 'User'] = {}
 
     def __init__(self, user_id: int, tg_id: int, status: str = 'player', current_lobby_id: int = None,
