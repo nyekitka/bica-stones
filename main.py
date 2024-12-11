@@ -33,7 +33,6 @@ async def entrypoint():
             User.SUPREME_ADMIN_ID = supreme_admin_id
         except ValueError:
             logging.error('tg_id of supreme_admin has incorrect format')
-    logging.info(User.SUPREME_ADMIN_ID)
     await asyncio.gather(main(), start_server())
 
 
