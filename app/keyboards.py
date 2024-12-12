@@ -1,6 +1,6 @@
 from aiogram.types import (ReplyKeyboardMarkup, KeyboardButton, 
                            InlineKeyboardButton, InlineKeyboardMarkup,
-                           ReplyKeyboardRemove)
+                           ReplyKeyboardRemove, User)
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 from math import ceil
@@ -79,3 +79,12 @@ def request_keyboard(user_id: int) -> InlineKeyboardMarkup:
          InlineKeyboardButton(text='Отклонить', callback_data=f'deny {user_id}')
         ]]
     )
+
+def admins_list_keyboard(admins_list: list[User]) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for admin in admins_list:
+        builder.add(InlineKeyboardButton(
+            text=f'Уволить {admin.full_name}',
+            callback_data=f'fire {admin.id}'
+        ))
+    return builder.adjust(1).as_markup()

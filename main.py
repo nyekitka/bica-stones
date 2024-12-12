@@ -30,7 +30,7 @@ async def entrypoint():
             user = await User.add_or_get(int(supreme_admin_id), 'admin')
             if user.status() != 'admin':
                 await user.set_status('admin')
-            User.SUPREME_ADMIN_ID = supreme_admin_id
+            User.SUPREME_ADMIN_ID = int(supreme_admin_id)
         except ValueError:
             logging.error('tg_id of supreme_admin has incorrect format')
     await asyncio.gather(main(), start_server())

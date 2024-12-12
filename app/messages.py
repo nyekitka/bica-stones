@@ -128,6 +128,15 @@ def request_for_admin(user: User):
     tag = f'[{user.full_name}](tg://user?id={user.id})'
     return Messages['request_for_admin'].format(tag)
 
+def admin_list(admins: list[User]):
+    list_message = ""
+    for admin in admins:
+        list_message += f'[{admin.full_name}](tg://user?id={admin.id})\n'
+    return Messages['admin_list'].format(list_message)
+
+def is_not_admin():
+    return Messages['is_not_admin']
+
 def invalid_request():
     return Messages['invalid_request']
 
@@ -142,3 +151,12 @@ def request_denied():
 
 def wait_til_player_leave():
     return Messages['wait_til_player_leave']
+
+def is_not_admin():
+    return Messages['is_not_admin']
+
+def fire_notice():
+    return Messages['fire_notice']
+
+def fire_success(name: str):
+    return Messages['fire_success'].format(name)

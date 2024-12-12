@@ -1,17 +1,13 @@
-from aiogram import types, F, Router, Bot
+from aiogram import types, F, Router
 from aiogram.types import FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.filters import Command, CommandStart
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.date import DateTrigger
+from aiogram.filters import Command, CommandStart, CommandObject
 
 import asyncio
 import os
 import logging
-from datetime import datetime, timedelta
 from typing import Optional, Dict
-from random import randint
 
 from . import (
     keyboards, messages,
@@ -210,6 +206,10 @@ async def start_new_round(
             await message.answer(messages.starting_not_being_in_lobby(),
                            reply_markup=keyboards.start_keyboard(True))
             return
+        elif lobby.number_of_players() < 2:
+            await message.answer(messages.not_enough_players_for_start(),
+                                 reply_markup=keyboards.between_rounds_keyboard(True))
+            return
         try:
             await loops.round_loop(message.bot, lobby, queues[lobby.lobby_id()])
         except wr.ActionException as ex:
@@ -355,3 +355,50 @@ async def deny_request(
         chat_id=id,
         text=messages.request_denied()
     )
+
+@router.message(Command("admins"))
+async def list_of_admins(
+    message: types.Message
+) -> None:
+    if message.from_user.id != wr.User.SUPREME_ADMIN_ID:
+        return
+    admin_ids = await wr.User.get_admins_ids()
+    admins = await utils.get_users(message.bot, admin_ids)
+    await message.answer(
+        text=messages.admin_list(admins),
+        parse_mode='MarkdownV2',
+        reply_markup=keyboards.admins_list_keyboard(admins)
+    )
+
+@router.callback_query(F.data.startswith('fire'))
+async def fire_admin(
+    call: types.CallbackQuery
+) -> None:
+    if call.from_user.id != wr.User.SUPREME_ADMIN_ID:
+        return
+    _, id = call.data.split()
+    id = int(id)
+    user = await wr.User.add_or_get(id)
+    if user.status() != 'admin':
+        await call.answer(
+            text=messages.is_not_admin(),
+            show_alert=True
+        )
+    else:
+        await user.set_status('player')
+        lobby = await user.lobby()
+        if lobby is not None:
+            await lobby.kick_user(user)
+        await call.bot.send_message(
+            chat_id=id,
+            text=messages.fire_notice(),
+            reply_markup=keyboards.start_keyboard(False)
+        )
+        tg_user = await call.bot.get_chat(id)
+        name = tg_user.full_name
+        admin_ids = await wr.User.get_admins_ids()
+        admins = await utils.get_users(call.bot, admin_ids)
+        await call.message.edit_reply_markup(
+            reply_markup=keyboards.admins_list_keyboard(admins)
+        )
+        await call.answer(messages.fire_success(name))

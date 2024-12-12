@@ -1,19 +1,7 @@
-from aiogram import types, F, Router, Bot
-from aiogram.types import FSInputFile
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
-from aiogram.filters import Command, CommandStart
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.date import DateTrigger
+from aiogram import types, Bot
 
-import asyncio
-import os
-import logging
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Union
-from random import randint
+from typing import Optional, Union
 
-from . import keyboards, messages
 from database import wrappers as wr
 
 async def send_message_to_all_users(
@@ -67,3 +55,13 @@ async def send_document_to_all_users(
                 parse_mode=parse_mode,
                 reply_markup=reply_markup
             )
+
+async def get_users(
+    bot: Bot,
+    user_ids: list[int]
+) -> list[types.User]:
+    users = []
+    for id in user_ids:
+        user = await bot.get_chat(id)
+        users.append(user)
+    return users
