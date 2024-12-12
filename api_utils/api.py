@@ -63,7 +63,7 @@ async def enter_lobby(
         return {
             "status": "success",
             "code": 200,
-            "message": "Agent entered lobby"
+            "message": "Агент вошёл в лобби"
         }
     except ActionException as ex:
         return {
@@ -106,7 +106,7 @@ async def leave_lobby(
     return {
         "status": "success",
         "code": 200,
-        "message": "Agent left lobby"
+        "message": "Агент вышел из лобби"
     }
 
 @app.get("/game/get_game_info/")
