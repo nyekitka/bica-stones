@@ -101,3 +101,6 @@ docker compose up
 ```bash
 sudo lsof -i -P -n | grep LISTEN | grep 5432
 ```
+## API
+
+- `/get_lobby_ids/` - эндпоинт возвращает список идентификаторов доступных лобби. 
