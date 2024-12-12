@@ -803,6 +803,23 @@ class User:
         cls.__instances[user_id] = instance
         return instance
 
+    
+    @classmethod
+    async def get_admins_ids(cls):
+        """
+        Returns admins tg_ids
+        """
+        result = await do_request("""
+            SELECT tg_id FROM public.\"user\"
+            WHERE status = 'admin';
+        """)
+        res = list(map(lambda x: int(x[0]), result))
+        logging.debug(res)
+        logging.debug(User.SUPREME_ADMIN_ID)
+        res.remove(User.SUPREME_ADMIN_ID)
+        return res
+
+
     @classmethod
     async def add_or_get(cls, tg_id: int, status: str = 'player'):
         """

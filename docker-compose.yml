@@ -4,7 +4,7 @@ services:
     build: .
     command: python3 main.py
     environment:
-      POSTGRES_PASSWORD: 12345678
+      POSTGRES_PASSWORD: 123456789
       POSTGRES_MAX_CONNECTIONS: 200
       PG_USER: postgres
       POSTGRES_DB: postgres
@@ -13,7 +13,7 @@ services:
       TEMP_DIR: ./bica_tempdata
       LOG_LEVEL: INFO
       BOT_TOKEN: $BOT_TOKEN
-      SUPREME_ADMIN_ID: 123456789
+      SUPREME_ADMIN_ID: 1018661287
     volumes:
       - .:/app
     ports:

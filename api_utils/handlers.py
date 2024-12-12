@@ -4,7 +4,11 @@ import logging
 from app import messages
 from app.game import bot, dp
 from database import wrappers as wr
-from data.exception import _ACTION_OUT_OF_LOBBY, _NO_SUCH_LOBBY
+from data.exception import (
+    _ACTION_OUT_OF_LOBBY, 
+    _NO_SUCH_LOBBY, 
+    _GAME_IS_NOT_RUNNING
+)
 
 
 
@@ -90,6 +94,8 @@ async def get_game_environment(
     lobby = await user.lobby()
     if lobby is None:
         raise wr.ActionException(_ACTION_OUT_OF_LOBBY)
+    elif lobby.status() != 'started':
+        raise wr.ActionException(_GAME_IS_NOT_RUNNING)
     return await lobby.field_for_user(user)
 
 async def wait_until_start_round(

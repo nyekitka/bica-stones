@@ -1,5 +1,5 @@
 import json
-from typing import Tuple
+from aiogram.types import User
 from pymorphy3 import MorphAnalyzer
 
 __messages_file = open('data/messages.json', encoding='utf-8')
@@ -66,7 +66,7 @@ def left_lobby(left: int, is_other: bool):
         agreed_word = player_word.make_agree_with_number(left).word
         return Messages['lobby_left_for_others'].format(left, agreed_word)
     else:
-        return Messages['left_lobby'].format(left)
+        return Messages['left_lobby']
 
 def starting_not_being_in_lobby():
     return Messages['starting_not_being_in_lobby']
@@ -123,3 +123,40 @@ def game_is_already_finished():
 
 def action_out_of_lobby():
     return Messages['action_out_of_lobby']
+
+def request_for_admin(user: User):
+    tag = f'[{user.full_name}](tg://user?id={user.id})'
+    return Messages['request_for_admin'].format(tag)
+
+def admin_list(admins: list[User]):
+    list_message = ""
+    for admin in admins:
+        list_message += f'[{admin.full_name}](tg://user?id={admin.id})\n'
+    return Messages['admin_list'].format(list_message)
+
+def is_not_admin():
+    return Messages['is_not_admin']
+
+def invalid_request():
+    return Messages['invalid_request']
+
+def wait_for_acception():
+    return Messages['wait_for_acception']
+
+def request_accepted():
+    return Messages['request_accepted']
+
+def request_denied():
+    return Messages['request_denied']
+
+def wait_til_player_leave():
+    return Messages['wait_til_player_leave']
+
+def is_not_admin():
+    return Messages['is_not_admin']
+
+def fire_notice():
+    return Messages['fire_notice']
+
+def fire_success(name: str):
+    return Messages['fire_success'].format(name)
